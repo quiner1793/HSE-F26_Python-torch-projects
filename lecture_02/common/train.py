@@ -44,9 +44,11 @@ def save_model(model, classes, path):
 
 
 def load_model(model, path, device):
+    print("Loading model...")
     checkpoint = torch.load(path, map_location=device)
 
     model.load_state_dict(checkpoint["model_state"])
+    model = model.to(device)
 
     classes = checkpoint["classes"]
 

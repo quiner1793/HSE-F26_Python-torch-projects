@@ -30,6 +30,7 @@ class SelectedBreedsDataset(Dataset):
 
 
 def create_datasets(data_root, selected_classes, transform):
+    print("Creating datasets...")
     train_all = datasets.OxfordIIITPet(
         root=data_root, split="trainval", target_types="category", download=True
     )
@@ -46,6 +47,7 @@ def create_datasets(data_root, selected_classes, transform):
 
 
 def create_loaders(train_ds, test_ds, batch_size):
+    print("Creating loaders...")
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
