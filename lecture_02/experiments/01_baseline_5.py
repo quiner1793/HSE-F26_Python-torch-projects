@@ -2,14 +2,8 @@ import os
 
 from lecture_02.common.config import (
     DEVICE,
-    SELECTED_CLASSES,
     DATA_ROOT,
-    BATCH_SIZE,
-    EPOCHS,
-    LEARNING_RATE,
-    MOMENTUM,
     MODELS_DIR,
-    BASELINE_MODEL_PATH,
 )
 
 from lecture_02.common.dataset import create_datasets, create_loaders
@@ -21,6 +15,15 @@ from lecture_02.common.train import train_model, save_model, load_model
 from lecture_02.common.evaluate import evaluate
 
 from lecture_02.common.predict import predict_image
+
+
+SELECTED_CLASSES = ["Beagle", "Pug", "Samoyed", "Shiba Inu", "Yorkshire Terrier"]
+BASELINE_MODEL_PATH = f"{MODELS_DIR}/model_5_classes.pth"
+
+BATCH_SIZE = 32
+EPOCHS = 5
+LEARNING_RATE = 0.01
+MOMENTUM = 0.9
 
 
 def main():
