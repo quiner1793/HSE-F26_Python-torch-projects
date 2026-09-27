@@ -1,6 +1,6 @@
 import os
 
-from ..common.config import (
+from lecture_02.common.config import (
     DEVICE,
     SELECTED_CLASSES,
     DATA_ROOT,
@@ -12,15 +12,15 @@ from ..common.config import (
     BASELINE_MODEL_PATH,
 )
 
-from ..common.dataset import create_datasets, create_loaders
+from lecture_02.common.dataset import create_datasets, create_loaders
 
-from ..common.model import create_model
+from lecture_02.common.model import create_model
 
-from ..common.train import train_model, save_model, load_model
+from lecture_02.common.train import train_model, save_model, load_model
 
-from ..common.evaluate import evaluate
+from lecture_02.common.evaluate import evaluate
 
-from ..common.predict import predict_image
+from lecture_02.common.predict import predict_image
 
 
 def main():
@@ -58,7 +58,7 @@ def main():
 
     print("\nREAL CASE:")
 
-    image_path = "data_real/praire_dog.jpg"
+    image_path = "../data_real/praire_dog.jpg"
 
     class_name, confidence = predict_image(
         model, image_path, transform, SELECTED_CLASSES, DEVICE
