@@ -6,16 +6,10 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets
 from torchvision.transforms import v2
-from torchvision.models import (
-    resnet18,
-    ResNet18_Weights
-)
+from torchvision.models import resnet18, ResNet18_Weights
 from PIL import Image
 
-device = torch.device(
-    "cuda" if torch.cuda.is_available()
-    else "cpu"
-)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print("device:", device)
 
@@ -30,46 +24,25 @@ transform = weights.transforms()
 # нормализация под pretrained ResNet18
 
 train_all = datasets.OxfordIIITPet(
-    root="./data",
-    split="trainval",
-    target_types="category",
-    download=True
+    root="./data", split="trainval", target_types="category", download=True
 )
 
 test_all = datasets.OxfordIIITPet(
-    root="./data",
-    split="test",
-    target_types="category",
-    download=True
+    root="./data", split="test", target_types="category", download=True
 )
 
 # pr#int(len(train_all), len(test_all))
 # print(train_all.classes)
 
-selected = [
-    "Beagle",
-    "Pug",
-    "Samoyed",
-    "Shiba Inu",
-    "Yorkshire Terrier"
-]
+selected = ["Beagle", "Pug", "Samoyed", "Shiba Inu", "Yorkshire Terrier"]
 
-name_to_old = {
-    name: i
-    for i, name in enumerate(train_all.classes)
-}
+name_to_old = {name: i for i, name in enumerate(train_all.classes)}
 # print(name_to_old)
 
-selected_old = [
-    name_to_old[name]
-    for name in selected
-]
+selected_old = [name_to_old[name] for name in selected]
 # print(selected_old)
 
-old_to_new = {
-    old: new
-    for new, old in enumerate(selected_old)
-}
+old_to_new = {old: new for new, old in enumerate(selected_old)}
 # print(old_to_new)
 
 
@@ -79,10 +52,7 @@ class FiveBreeds(Dataset):
         self.transform = transform
 
         # base[200] - (<PIL.Image.Image image mode=RGB size=333x500 at 0x7DCCC7FB6300>, 200)
-        self.indices = [
-            i for i, (_, y) in enumerate(base)
-            if y in selected_old
-        ]
+        self.indices = [i for i, (_, y) in enumerate(base) if y in selected_old]
 
     def __len__(self):
         return len(self.indices)
@@ -97,19 +67,11 @@ class FiveBreeds(Dataset):
 
 
 train_ds = FiveBreeds(train_all, transform)
-test_ds  = FiveBreeds(test_all, transform)
+test_ds = FiveBreeds(test_all, transform)
 
-train_loader = DataLoader(
-    train_ds,
-    batch_size=32,
-    shuffle=True
-)
+train_loader = DataLoader(train_ds, batch_size=32, shuffle=True)
 
-test_loader = DataLoader(
-    test_ds,
-    batch_size=32,
-    shuffle=False
-)
+test_loader = DataLoader(test_ds, batch_size=32, shuffle=False)
 
 """
 X — это тензор с изображениями.
@@ -187,11 +149,7 @@ else:
         p.requires_grad = True
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(
-        model.fc.parameters(),
-        lr=0.01,
-        momentum=0.9
-    )
+    optimizer = torch.optim.SGD(model.fc.parameters(), lr=0.01, momentum=0.9)
 
     for epoch in range(5):
         model.train()
@@ -208,19 +166,10 @@ else:
             loss.backward()
             optimizer.step()
 
-        print(
-            f"epoch={epoch+1} "
-            f"loss={loss.item():.4f}"
-        )
+        print(f"epoch={epoch+1} " f"loss={loss.item():.4f}")
 
     # Сохраняем результаты обучения
-    torch.save(
-        {
-            "model_state": model.state_dict(),
-            "classes": selected
-        },
-        MODEL_PATH
-    )
+    torch.save({"model_state": model.state_dict(), "classes": selected}, MODEL_PATH)
     print(f"Обучение завершено. Модель сохранена в {MODEL_PATH}")
 
 
@@ -284,26 +233,16 @@ with torch.no_grad():
     """
     Функция Softmax сглаживает логиты, превращая их в классические вероятности: все значения теперь строго от 0 до 1, а их сумма равна ровно 1 (или 100%).
     """
-    probabilities = torch.softmax(
-        logits,
-        dim=1
-    )
+    probabilities = torch.softmax(logits, dim=1)
 
     """
     argmax находит индекс максимума
     """
-    class_id = probabilities.argmax(
-        dim=1
-    ).item()
+    class_id = probabilities.argmax(dim=1).item()
 
     """
     Достаем саму вероятность
     """
-    confidence = probabilities[
-        0, class_id
-    ].item()
+    confidence = probabilities[0, class_id].item()
 
-print(
-    selected[class_id],
-    f"{confidence:.1%}"
-)
+print(selected[class_id], f"{confidence:.1%}")
