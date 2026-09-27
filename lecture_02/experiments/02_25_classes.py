@@ -3,7 +3,8 @@ import os
 from lecture_02.common.config import (
     DEVICE,
     DATA_ROOT,
-    MODELS_DIR
+    MODELS_DIR,
+    RESULTS_DIR
 )
 
 from lecture_02.common.dataset import (
@@ -52,14 +53,18 @@ SELECTED_CLASSES = [
 ]
 
 
-MODEL_PATH = (
-    f"{MODELS_DIR}/model_25_classes.pth"
-)
-
 BATCH_SIZE = 32
 EPOCHS = 5
 LEARNING_RATE = 0.01
 MOMENTUM = 0.9
+
+MODEL_PATH = (
+    f"{MODELS_DIR}/model_25_classes.pth"
+)
+
+RESULTS_DIR = (
+    f"{RESULTS_DIR}/25_classes"
+)
 
 
 def main():
@@ -92,6 +97,15 @@ def main():
         MODELS_DIR,
         exist_ok=True
     )
+
+    os.makedirs(
+        RESULTS_DIR,
+        exist_ok=True
+    )
+
+    print("\nРазмеры выборок:")
+    print(f"Train: {len(train_ds)}")
+    print(f"Test:  {len(test_ds)}")
 
     if os.path.exists(MODEL_PATH):
 
@@ -131,12 +145,19 @@ def main():
     accuracy = evaluate(
         model,
         test_loader,
-        DEVICE
+        DEVICE,
+        classes=SELECTED_CLASSES,
+        results_dir=RESULTS_DIR
     )
 
     print(
         f"\nИтоговая accuracy: "
         f"{accuracy:.2%}"
+    )
+
+    print(
+        f"\nРезультаты сохранены в: "
+        f"{RESULTS_DIR}"
     )
 
 
