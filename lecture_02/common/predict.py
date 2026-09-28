@@ -1,8 +1,12 @@
 import torch
 from PIL import Image
 
+from .decision import is_unknown
 
-def predict_image(model, image_path, transform, classes, device):
+
+def predict_image(model, image_path, transform, classes, device, threshold=None, score="confidence"):
+    if score not in ("confidence", "margin"):
+        raise ValueError("Оценка должна быть confidence или margin")
     image = Image.open(image_path).convert("RGB")
 
     x = transform(image)
@@ -22,5 +26,9 @@ def predict_image(model, image_path, transform, classes, device):
         class_id = probabilities.argmax(dim=1).item()
 
         confidence = probabilities[0, class_id].item()
+        rejection_score = confidence
+        if score == "margin":
+            best = probabilities[0].topk(2).values.tolist()
+            rejection_score = best[0] - best[1]
 
-    return (classes[class_id], confidence)
+    return ("unknown" if is_unknown(rejection_score, threshold) else classes[class_id], confidence)

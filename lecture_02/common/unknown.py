@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Subset
 from .classes import CAT_BREEDS
 from .config import DATA_ROOT, DEVICE
 from .dataset import SelectedBreedsDataset, create_datasets
+from .decision import is_unknown
 from .model import create_model
 from .train import load_model
 
@@ -115,9 +116,11 @@ def summarize_predictions(records, known, high_confidence):
     return result
 
 
-def rejection_curve(known_records, unknown_records):
-    known = sorted(row["confidence"] for row in known_records)
-    unknown = sorted(row["confidence"] for row in unknown_records)
+def rejection_curve(known_records, unknown_records, score="confidence"):
+    if score not in ("confidence", "margin"):
+        raise ValueError("Оценка должна быть confidence или margin")
+    known = sorted(row[score] for row in known_records)
+    unknown = sorted(row[score] for row in unknown_records)
     if not known or not unknown:
         raise ValueError("Для кривой нужны обе выборки")
     thresholds = sorted({0.0, *known, *unknown, math.nextafter(1.0, math.inf)})
@@ -131,15 +134,19 @@ def rejection_curve(known_records, unknown_records):
     ]
 
 
-def save_unknown_results(config, metadata, records, metrics, curve):
+def save_unknown_results(config, metadata, records, metrics, curve, threshold=None, selection=None):
     import matplotlib.pyplot as plt
 
+    score = getattr(config, "score", "confidence")
+    score_label = "Максимальная softmax-оценка" if score == "confidence" else "Разница p1 - p2"
     directory = config.results_dir
     directory.mkdir(parents=True, exist_ok=True)
     payload = {
         "config": asdict(config),
-        "method": "no_rejection",
-        "threshold": None,
+        "method": "no_rejection" if threshold is None else f"{score}_threshold",
+        "score": score,
+        "threshold": threshold,
+        "selection": selection,
         "metadata": metadata,
         "metrics": metrics,
         "predictions": records,
@@ -155,7 +162,7 @@ def save_unknown_results(config, metadata, records, metrics, curve):
             ("known", "Известные: собаки", "#2475a8"),
             ("unknown", "Unknown: кошки", "#b84050"),
         ):
-            scores = [row["confidence"] for row in records[f"{group}_{split}"]]
+            scores = [row[score] for row in records[f"{group}_{split}"]]
             ax.hist(
                 scores,
                 bins=[i / 20 for i in range(21)],
@@ -165,7 +172,9 @@ def save_unknown_results(config, metadata, records, metrics, curve):
                 label=label,
                 color=color,
             )
-        ax.set(title=split, xlabel="Максимальная softmax-оценка", xlim=(0, 1), ylabel="Доля изображений, %")
+        ax.set(title=split, xlabel=score_label, xlim=(0, 1), ylabel="Доля изображений, %")
+        if threshold is not None:
+            ax.axvline(threshold, color="black", linestyle="--", label=f"Порог {threshold:.4f}")
         ax.legend(fontsize=8)
         ax.grid(alpha=0.2)
     fig.tight_layout()
@@ -178,7 +187,13 @@ def save_unknown_results(config, metadata, records, metrics, curve):
         [100 * row["unknown_detection_rate"] for row in curve],
         color="#2475a8",
     )
-    ax.axvline(5, linestyle="--", color="#b84050", label="Ориентир: 5% ложных отказов")
+    limit = 5 if selection is None else 100 * selection["max_false_rejection"]
+    ax.axvline(limit, linestyle="--", color="#b84050", label=f"Лимит ложных отказов: {limit:g}%")
+    if threshold is not None:
+        for split, marker in (("validation", "o"), ("test", "x")):
+            ax.scatter(100 * metrics[f"known_{split}"]["false_rejection_rate"],
+                       100 * metrics[f"unknown_{split}"]["unknown_detection_rate"],
+                       marker=marker, label=f"Выбранный порог: {split}", zorder=3)
     ax.set(
         xlabel="Ложный отказ на известных, %",
         ylabel="Обнаружение unknown, %",
@@ -191,6 +206,29 @@ def save_unknown_results(config, metadata, records, metrics, curve):
     fig.tight_layout()
     fig.savefig(directory / "rejection_tradeoff.png", dpi=160)
     plt.close(fig)
+
+    if threshold is not None:
+        title = "U02: ПОРОГ УВЕРЕННОСТИ" if score == "confidence" else "U03: РАЗНИЦА ДВУХ ЛУЧШИХ ОТВЕТОВ"
+        report = [title, "",
+                  f"Правило: {score} < {threshold:.10f} -> unknown",
+                  f"Порог выбран только на validation; лимит ложного отказа: {limit:g}%."]
+        for split in ("validation", "test"):
+            known, unknown = metrics[f"known_{split}"], metrics[f"unknown_{split}"]
+            accepted_accuracy = known["accuracy_accepted_known"]
+            report += ["", split.upper(),
+                       f"Unknown обнаружено: {unknown['rejected']}/{unknown['total']} ({unknown['unknown_detection_rate']:.2%})",
+                       f"Ложный отказ на известных: {known['rejected']}/{known['total']} ({known['false_rejection_rate']:.2%})",
+                       f"Accuracy на всех известных (отказ = ошибка): {known['accuracy_all_known']:.2%}",
+                       f"Доля принятых известных: {known['acceptance_rate']:.2%}",
+                       (f"Accuracy среди принятых известных: {accepted_accuracy:.2%}"
+                        if accepted_accuracy is not None else "Принятых известных нет"),
+                       "Ложные отказы по породам:"]
+            for name, values in sorted(known["per_class"].items(), key=lambda item: item[1]["false_rejection_rate"], reverse=True)[:5]:
+                report.append(f"- {name}: {values['rejected']}/{values['total']} ({values['false_rejection_rate']:.2%})")
+        report += ["", "Unknown в этом опыте: кошки. Результат не описывает все неизвестные объекты."]
+        (directory / "report.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
+        print("\n".join(report))
+        return
 
     report = [
         "U01: БАЗОВАЯ МОДЕЛЬ БЕЗ ОТКАЗА",
@@ -259,3 +297,81 @@ def run_unknown_baseline(config):
     save_unknown_results(config, metadata, records, metrics, curve)
     print(f"Результаты: {config.results_dir}")
     return metrics
+
+
+@dataclass(frozen=True)
+class ThresholdConfig:
+    source_path: Path
+    results_dir: Path
+    max_false_rejection: float = 0.05
+    score: str = "confidence"
+
+
+def select_threshold(known_validation, unknown_validation, max_false_rejection, score="confidence"):
+    if not 0 <= max_false_rejection < 1:
+        raise ValueError("Лимит ложного отказа должен быть в диапазоне [0, 1)")
+    curve = rejection_curve(known_validation, unknown_validation, score)
+    feasible = [row for row in curve if row["false_rejection_rate"] <= max_false_rejection
+                and row["threshold"] <= 1]
+    # Ties: prefer fewer known rejections, then the smallest threshold.
+    selected = max(feasible, key=lambda row: (row["unknown_detection_rate"],
+                   -row["false_rejection_rate"], -row["threshold"]))
+    return selected["threshold"], curve
+
+
+def threshold_metrics(records, known, threshold, high_confidence=0.9, score="confidence"):
+    result = summarize_predictions(records, known, high_confidence)
+    accepted = [row for row in records if not is_unknown(row[score], threshold)]
+    rejected = len(records) - len(accepted)
+    result.update({"rejected": rejected, "accepted": len(accepted),
+                   "acceptance_rate": len(accepted) / len(records)})
+    if known:
+        correct = sum(row["target"] == row["prediction"] for row in accepted)
+        result.update({"correct": correct, "accuracy_all_known": correct / len(records),
+                       "accuracy_accepted_known": correct / len(accepted) if accepted else None,
+                       "false_rejection_rate": rejected / len(records)})
+        per_class = {}
+        for row in records:
+            name = row.get("true_class", str(row["target"]))
+            counts = per_class.setdefault(name, {"total": 0, "rejected": 0})
+            counts["total"] += 1
+            counts["rejected"] += int(is_unknown(row[score], threshold))
+        for counts in per_class.values():
+            counts["false_rejection_rate"] = counts["rejected"] / counts["total"]
+        result["per_class"] = per_class
+    else:
+        result.update({"unknown_detection_rate": rejected / len(records),
+                       "unknown_false_acceptance_rate": len(accepted) / len(records)})
+    result["high_confidence_errors"] = sum(
+        row["confidence"] >= high_confidence and (not known or row["target"] != row["prediction"])
+        for row in accepted
+    )
+    return result
+
+
+def run_threshold_experiment(config):
+    if config.score not in ("confidence", "margin"):
+        raise ValueError("Оценка должна быть confidence или margin")
+    source = json.loads(config.source_path.read_text(encoding="utf-8"))
+    if source["method"] != "no_rejection":
+        raise ValueError("Нужны исходные предсказания U01 без отказа")
+    records = source["predictions"]
+    for rows in records.values():
+        if any(not math.isfinite(row[config.score]) or not 0 <= row[config.score] <= 1 for row in rows):
+            raise ValueError(f"Некорректная {config.score} в исходных предсказаниях")
+    threshold, curve = select_threshold(records["known_validation"], records["unknown_validation"],
+                                        config.max_false_rejection, config.score)
+    metrics = {name: threshold_metrics(rows, name.startswith("known_"), threshold,
+                                       source["config"]["high_confidence"], config.score)
+               for name, rows in records.items()}
+    metadata = dict(source["metadata"], source_sha256=file_digest(config.source_path),
+                    classes=source["config"]["classes"])
+    save_unknown_results(config, metadata, records, metrics, curve, threshold=threshold,
+                         selection={"split": "validation", "max_false_rejection": config.max_false_rejection,
+                                    "tie_break": "fewer_known_rejections_then_smallest_threshold"})
+    print(f"Результаты: {config.results_dir}")
+    return metrics
+
+
+def run_confidence_threshold(config):
+    return run_threshold_experiment(config)

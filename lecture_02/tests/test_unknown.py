@@ -10,10 +10,13 @@ from unittest.mock import patch
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
+from PIL import Image
 
 from lecture_02.common.classes import BREEDS_25, CAT_BREEDS
 from lecture_02.common.dataset import _stratified_indices
 from lecture_02.common.train import save_model
+from lecture_02.common.decision import is_unknown
+from lecture_02.common.predict import predict_image
 from lecture_02.common.unknown import (
     UnknownConfig,
     collect_predictions,
@@ -21,6 +24,10 @@ from lecture_02.common.unknown import (
     rejection_curve,
     run_unknown_baseline,
     summarize_predictions,
+    select_threshold,
+    threshold_metrics,
+    ThresholdConfig,
+    run_threshold_experiment,
 )
 
 
@@ -40,6 +47,64 @@ class FakePets:
 
 
 class UnknownTests(unittest.TestCase):
+    def test_margin_decision_matches_cached_scores(self):
+        logits = torch.tensor([[0.6, 0.35, 0.05]]).log()
+        loader = DataLoader(TensorDataset(logits, torch.tensor([0])))
+        rows = collect_predictions(nn.Identity(), loader, "cpu")
+        self.assertEqual(threshold_metrics(rows, True, 0.3)["rejected"], 0)
+        self.assertEqual(threshold_metrics(rows, True, 0.3, score="margin")["rejected"], 1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "image.png"
+            Image.new("RGB", (2, 2)).save(path)
+            transform = lambda image: logits[0]
+            label, confidence = predict_image(nn.Identity(), path, transform, ["a", "b", "c"], "cpu",
+                                               threshold=0.3, score="margin")
+            self.assertEqual(label, "unknown")
+            self.assertEqual(confidence, rows[0]["confidence"])
+            label, _ = predict_image(nn.Identity(), path, transform, ["a", "b", "c"], "cpu",
+                                     threshold=rows[0]["margin"], score="margin")
+            self.assertEqual(label, "a")
+
+    def test_margin_selection_does_not_use_test_predictions(self):
+        def row(margin):
+            return dict(confidence=0.95, margin=margin, target=0, prediction=0)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "source.json"
+            source = {"method": "no_rejection", "metadata": {},
+                      "config": {"classes": ["a", "b"], "high_confidence": 0.9},
+                      "predictions": {"known_validation": [row(0.4), row(0.8)],
+                                      "unknown_validation": [row(0.1), row(0.3)],
+                                      "known_test": [row(0.2)], "unknown_test": [row(0.2)]}}
+            config = ThresholdConfig(path, Path(directory) / "results", score="margin")
+            thresholds = []
+            for test_margin in (0.0, 1.0):
+                source["predictions"]["unknown_test"] = [row(test_margin)]
+                path.write_text(json.dumps(source))
+                with patch("lecture_02.common.unknown.save_unknown_results") as save:
+                    run_threshold_experiment(config)
+                    thresholds.append(save.call_args.kwargs["threshold"])
+            self.assertEqual(thresholds, [0.4, 0.4])
+
+    def test_threshold_budget_ties_and_boundary(self):
+        known = [{"confidence": value} for value in (0.2, 0.2, 0.9, 0.9)]
+        unknown = [{"confidence": value} for value in (0.1, 0.3, 0.8)]
+        threshold, _ = select_threshold(known, unknown, 0.25)
+        self.assertEqual(threshold, 0.2)
+        self.assertFalse(is_unknown(0.2, threshold))
+        self.assertTrue(is_unknown(0.1, threshold))
+
+    def test_rejecting_correct_predictions_counts_as_error(self):
+        rows = [dict(target=0, prediction=0, confidence=0.4),
+                dict(target=0, prediction=0, confidence=0.8),
+                dict(target=0, prediction=1, confidence=0.9)]
+        result = threshold_metrics(rows, True, 0.5)
+        self.assertEqual(result["accuracy_all_known"], 1 / 3)
+        self.assertEqual(result["accuracy_accepted_known"], 0.5)
+        self.assertEqual(result["false_rejection_rate"], 1 / 3)
+        self.assertEqual(result["per_class"]["0"]["rejected"], 1)
+        self.assertIsNone(threshold_metrics(rows, True, 1.0)["accuracy_accepted_known"])
+        self.assertEqual(threshold_metrics(rows, False, 0.5)["unknown_detection_rate"], 1 / 3)
+
     def test_validation_matches_source_split_and_cats_are_separate(self):
         transform = lambda image: image + 10
         with patch("lecture_02.common.dataset.datasets.OxfordIIITPet", side_effect=FakePets) as factory:
