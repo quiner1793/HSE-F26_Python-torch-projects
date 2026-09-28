@@ -34,3 +34,5 @@ lecture_02/
 конфигурацией и метриками, accuracy по классам и confusion matrix.
 
 Команды запуска и результаты: [EXPERIMENTS.md](EXPERIMENTS.md).
+
+План и результаты распознавания unknown: [UNKNOWN_EXPERIMENTS.md](UNKNOWN_EXPERIMENTS.md).
