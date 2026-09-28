@@ -3,9 +3,11 @@ from pathlib import Path
 
 import torch
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOT = PROJECT_ROOT / "data"
-MODELS_DIR = PROJECT_ROOT / "models"
-RESULTS_DIR = PROJECT_ROOT / "results"
-REAL_DATA_DIR = PROJECT_ROOT / "data_real"
+REAL_DATA_DIR = DATA_ROOT / "data_real"
+
+MODELS_DIR = PROJECT_ROOT / "lecture_02" / "models"
+RESULTS_DIR = PROJECT_ROOT / "lecture_02" / "results"

@@ -1,3 +1,5 @@
-lecture_02/data
-lecture_02/data_real
-.idea
+data/
+models/
+.idea/
+.venv/
+__pycache__/
