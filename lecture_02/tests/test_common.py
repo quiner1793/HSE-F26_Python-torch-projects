@@ -84,19 +84,29 @@ class CommonTests(unittest.TestCase):
             classes = ["a", "b", "c"]
 
             def __len__(self):
-                return 3
+                return 6
 
             def __getitem__(self, index):
-                return [(10, 0), (20, 1), (30, 2)][index]
+                return [(10, 0), (11, 0), (20, 1), (21, 1), (30, 2), (31, 2)][index]
 
         with patch(
             "lecture_02.common.dataset.datasets.OxfordIIITPet",
             side_effect=lambda **kwargs: Base(),
         ) as factory:
-            train, test = create_datasets(".", ["c", "a"], lambda x: x + 1, lambda x: x + 2)
+            train, validation, test = create_datasets(
+                ".",
+                ["c", "a"],
+                lambda x: x + 1,
+                lambda x: x + 2,
+                validation_fraction=0.5,
+                seed=42,
+            )
         self.assertEqual(factory.call_count, 2)
-        self.assertEqual([train[i] for i in range(len(train))], [(11, 1), (31, 0)])
-        self.assertEqual([test[i] for i in range(len(test))], [(12, 1), (32, 0)])
+        self.assertEqual(sorted(y for _, y in train), [0, 1])
+        self.assertEqual(sorted(y for _, y in validation), [0, 1])
+        self.assertEqual([test[i] for i in range(len(test))], [(12, 1), (13, 1), (32, 0), (33, 0)])
+        self.assertTrue(all(x in (11, 12, 31, 32) for x, _ in train))
+        self.assertTrue(all(x in (12, 13, 32, 33) for x, _ in validation))
 
     def test_augmentation_preserves_test_preprocessing(self):
         weights = ResNet18_Weights.DEFAULT
@@ -105,6 +115,35 @@ class CommonTests(unittest.TestCase):
         self.assertIs(plain, test_plain)
         self.assertNotEqual(repr(augmented), repr(plain))
         self.assertEqual(repr(test_plain), repr(test_augmented))
+
+    def test_scheduler_and_early_stopping(self):
+        train_loader = DataLoader(
+            TensorDataset(torch.ones(4, 2), torch.zeros(4, dtype=torch.long)),
+            batch_size=2,
+        )
+        validation_loader = DataLoader(
+            TensorDataset(torch.ones(4, 2), torch.ones(4, dtype=torch.long)),
+            batch_size=2,
+        )
+        history = []
+        model = train_model(
+            TinyModel(),
+            train_loader,
+            "cpu",
+            5,
+            0.01,
+            0.9,
+            history=history,
+            validation_loader=validation_loader,
+            early_stopping_patience=1,
+            scheduler_patience=0,
+            scheduler_factor=0.5,
+            min_delta=10.0,
+        )
+        self.assertIsInstance(model, TinyModel)
+        self.assertEqual(len(history), 2)
+        self.assertIn("validation_loss", history[0])
+        self.assertLess(history[1]["learning_rates"][0], history[0]["learning_rates"][0])
 
     def test_metrics_and_diagnostic_artifacts(self):
         loader = DataLoader(
@@ -159,10 +198,10 @@ class CommonTests(unittest.TestCase):
                 return_value=(None, None),
             ), patch(
                 "lecture_02.common.experiment.create_datasets",
-                return_value=(None, None),
+                return_value=(None, None, None),
             ), patch(
                 "lecture_02.common.experiment.create_loaders",
-                return_value=(loader, loader),
+                return_value=(loader, None, loader),
             ), patch(
                 "lecture_02.common.experiment.DEVICE", "cpu"
             ):
@@ -182,6 +221,7 @@ class CommonTests(unittest.TestCase):
                 "03_finetune_layer4",
                 "04_finetune_layer4_lr1e3",
                 "05_finetune_with_augmentation",
+                "06_validation_early_stopping",
             ):
                 module = importlib.import_module("lecture_02.experiments." + name)
                 self.assertIsInstance(module.CONFIG, ExperimentConfig)

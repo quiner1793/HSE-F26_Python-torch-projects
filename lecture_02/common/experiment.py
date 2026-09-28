@@ -34,6 +34,11 @@ class ExperimentConfig:
     image_path: Path | None = None
     data_root: Path = DATA_ROOT
     seed: int = 42
+    validation_fraction: float = 0.0
+    early_stopping_patience: int | None = None
+    scheduler_patience: int | None = None
+    scheduler_factor: float = 0.3
+    min_delta: float = 0.0
 
 
 def run_experiment(config: ExperimentConfig):
@@ -50,8 +55,15 @@ def run_experiment(config: ExperimentConfig):
         model, _ = load_model(model, config.model_path, DEVICE, expected_classes=config.classes)
 
     train_transform, test_transform = create_transforms(weights, config.augmentation)
-    train_ds, test_ds = create_datasets(config.data_root, config.classes, train_transform, test_transform)
-    train_loader, test_loader = create_loaders(train_ds, test_ds, config.batch_size)
+    train_ds, validation_ds, test_ds = create_datasets(
+        config.data_root,
+        config.classes,
+        train_transform,
+        test_transform,
+        validation_fraction=config.validation_fraction,
+        seed=config.seed,
+    )
+    train_loader, validation_loader, test_loader = create_loaders(train_ds, validation_ds, test_ds, config.batch_size)
     history = None
     if not use_checkpoint:
         history = []
@@ -64,6 +76,11 @@ def run_experiment(config: ExperimentConfig):
             config.momentum,
             config.backbone_lr,
             history=history,
+            validation_loader=validation_loader,
+            early_stopping_patience=config.early_stopping_patience,
+            scheduler_patience=config.scheduler_patience,
+            scheduler_factor=config.scheduler_factor,
+            min_delta=config.min_delta,
         )
         save_model(model, config.classes, config.model_path)
     else:

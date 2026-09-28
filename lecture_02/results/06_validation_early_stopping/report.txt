@@ -1,0 +1,34 @@
+ОТЧЁТ ОБ ЭКСПЕРИМЕНТЕ
+
+Дата: 2026-09-28 23:39
+Количество классов: 25
+Тестовых изображений: 2486
+Правильных предсказаний: 2293
+Accuracy: 92.24%
+Top-5 accuracy: 99.40%
+Accuracy на исходных пяти породах: 97.00%
+
+Самые слабые классы:
+- American Pit Bull Terrier: 51.00%
+- Staffordshire Bull Terrier: 69.66%
+- Miniature Pinscher: 82.00%
+- American Bulldog: 87.00%
+- Chihuahua: 90.00%
+
+Самые частые ошибки:
+- American Pit Bull Terrier -> Staffordshire Bull Terrier: 29 ошибок
+- Staffordshire Bull Terrier -> American Bulldog: 11 ошибок
+- Staffordshire Bull Terrier -> American Pit Bull Terrier: 10 ошибок
+- American Pit Bull Terrier -> American Bulldog: 9 ошибок
+- Miniature Pinscher -> Staffordshire Bull Terrier: 7 ошибок
+- Miniature Pinscher -> Chihuahua: 6 ошибок
+- Boxer -> American Bulldog: 6 ошибок
+- American Pit Bull Terrier -> German Shorthaired: 6 ошибок
+- American Bulldog -> Staffordshire Bull Terrier: 5 ошибок
+- Chihuahua -> Miniature Pinscher: 4 ошибок
+
+Файлы:
+- class_accuracy.png
+- confusion_matrix.png
+- report.txt
+- experiment.json
