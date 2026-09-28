@@ -179,6 +179,9 @@ class CommonTests(unittest.TestCase):
             for name in (
                 "01_baseline_5",
                 "02_baseline_25",
+                "03_finetune_layer4",
+                "04_finetune_layer4_lr1e3",
+                "05_finetune_with_augmentation",
             ):
                 module = importlib.import_module("lecture_02.experiments." + name)
                 self.assertIsInstance(module.CONFIG, ExperimentConfig)

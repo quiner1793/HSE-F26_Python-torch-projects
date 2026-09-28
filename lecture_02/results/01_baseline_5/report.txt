@@ -1,0 +1,24 @@
+ОТЧЁТ ОБ ЭКСПЕРИМЕНТЕ
+
+Дата: 2026-09-28 21:55
+Количество классов: 5
+Тестовых изображений: 500
+Правильных предсказаний: 496
+Accuracy: 99.20%
+
+Самые слабые классы:
+- Pug: 97.00%
+- Samoyed: 99.00%
+- Beagle: 100.00%
+- Shiba Inu: 100.00%
+- Yorkshire Terrier: 100.00%
+
+Самые частые ошибки:
+- Pug -> Beagle: 3 ошибок
+- Samoyed -> Beagle: 1 ошибок
+
+Файлы:
+- class_accuracy.png
+- confusion_matrix.png
+- report.txt
+- experiment.json

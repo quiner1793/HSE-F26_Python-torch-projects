@@ -1,0 +1,92 @@
+{
+  "config": {
+    "classes": [
+      "Beagle",
+      "Pug",
+      "Samoyed",
+      "Shiba Inu",
+      "Yorkshire Terrier"
+    ],
+    "model_path": "/home/quiner/HSE/F26/python/torch_projects/lecture_02/models/model_5_classes.pth",
+    "results_dir": "/home/quiner/HSE/F26/python/torch_projects/lecture_02/results/01_baseline_5",
+    "batch_size": 32,
+    "epochs": 5,
+    "learning_rate": 0.01,
+    "momentum": 0.9,
+    "backbone_lr": null,
+    "augmentation": false,
+    "evaluate_only": false,
+    "diagnosis": true,
+    "reuse_checkpoint": true,
+    "image_path": null,
+    "data_root": "/home/quiner/HSE/F26/python/torch_projects/data",
+    "seed": 42
+  },
+  "history": null,
+  "metrics": {
+    "classes": [
+      "Beagle",
+      "Pug",
+      "Samoyed",
+      "Shiba Inu",
+      "Yorkshire Terrier"
+    ],
+    "total": 500,
+    "correct": 496,
+    "accuracy": 0.992,
+    "top5_accuracy": 1.0,
+    "class_total": [
+      100,
+      100,
+      100,
+      100,
+      100
+    ],
+    "class_correct": [
+      100,
+      97,
+      99,
+      100,
+      100
+    ],
+    "confusion_matrix": [
+      [
+        100,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        3,
+        97,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        99,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        100,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        100
+      ]
+    ],
+    "original_5_total": 500,
+    "original_5_accuracy": 0.992
+  }
+}
