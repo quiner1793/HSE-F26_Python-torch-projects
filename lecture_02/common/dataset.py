@@ -29,7 +29,8 @@ class SelectedBreedsDataset(Dataset):
         return image, new_y
 
 
-def create_datasets(data_root, selected_classes, transform):
+def create_datasets(data_root, selected_classes, transform, test_transform=None):
+    """Отдельные преобразования train/test без повторного создания датасетов."""
     print("Creating datasets...")
     train_all = datasets.OxfordIIITPet(
         root=data_root, split="trainval", target_types="category", download=True
@@ -41,7 +42,9 @@ def create_datasets(data_root, selected_classes, transform):
 
     train_ds = SelectedBreedsDataset(train_all, transform, selected_classes)
 
-    test_ds = SelectedBreedsDataset(test_all, transform, selected_classes)
+    test_ds = SelectedBreedsDataset(
+        test_all, transform if test_transform is None else test_transform, selected_classes
+    )
 
     return train_ds, test_ds
 

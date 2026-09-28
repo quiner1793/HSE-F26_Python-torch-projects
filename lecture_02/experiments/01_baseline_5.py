@@ -1,73 +1,18 @@
-import os
+"""Базовое задание: 5 пород."""
+from lecture_02.common.classes import BREEDS_5
+from lecture_02.common.config import MODELS_DIR, RESULTS_DIR, REAL_DATA_DIR
+from lecture_02.common.experiment import ExperimentConfig, run_experiment
 
-from lecture_02.common.config import (
-    DEVICE,
-    DATA_ROOT,
-    MODELS_DIR,
+CONFIG = ExperimentConfig(
+    classes=BREEDS_5,
+    model_path=MODELS_DIR / "model_5_classes.pth",
+    results_dir=RESULTS_DIR / "5_classes",
+    image_path=REAL_DATA_DIR / "praire_dog.jpg",
 )
-
-from lecture_02.common.dataset import create_datasets, create_loaders
-
-from lecture_02.common.model import create_model
-
-from lecture_02.common.train import train_model, save_model, load_model
-
-from lecture_02.common.evaluate import evaluate
-
-from lecture_02.common.predict import predict_image
-
-
-SELECTED_CLASSES = ["Beagle", "Pug", "Samoyed", "Shiba Inu", "Yorkshire Terrier"]
-BASELINE_MODEL_PATH = f"{MODELS_DIR}/model_5_classes.pth"
-
-BATCH_SIZE = 32
-EPOCHS = 5
-LEARNING_RATE = 0.01
-MOMENTUM = 0.9
 
 
 def main():
-    print("device:", DEVICE)
-
-    model, weights = create_model(len(SELECTED_CLASSES))
-
-    transform = weights.transforms()
-
-    train_ds, test_ds = create_datasets(DATA_ROOT, SELECTED_CLASSES, transform)
-
-    train_loader, test_loader = create_loaders(train_ds, test_ds, BATCH_SIZE)
-
-    os.makedirs(MODELS_DIR, exist_ok=True)
-
-    if os.path.exists(BASELINE_MODEL_PATH):
-
-        print(f"Загружаем модель из " f"{BASELINE_MODEL_PATH}...")
-
-        model, classes = load_model(model, BASELINE_MODEL_PATH, DEVICE)
-
-    else:
-
-        print("Модель не найдена. " "Запускаем обучение...")
-
-        model = train_model(
-            model, train_loader, DEVICE, EPOCHS, LEARNING_RATE, MOMENTUM
-        )
-
-        save_model(model, SELECTED_CLASSES, BASELINE_MODEL_PATH)
-
-    print("\nTEST:")
-
-    evaluate(model, test_loader, DEVICE)
-
-    print("\nREAL CASE:")
-
-    image_path = "../data_real/praire_dog.jpg"
-
-    class_name, confidence = predict_image(
-        model, image_path, transform, SELECTED_CLASSES, DEVICE
-    )
-
-    print(class_name, f"{confidence:.1%}")
+    return run_experiment(CONFIG)
 
 
 if __name__ == "__main__":

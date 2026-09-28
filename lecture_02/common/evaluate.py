@@ -4,7 +4,7 @@ from datetime import datetime
 import torch
 
 
-def evaluate(model, test_loader, device, classes=None, results_dir=None):
+def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnosis=False):
     model.eval()
 
     if classes is None:
@@ -51,6 +51,12 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None):
             for i in range(num_classes)
         ]
 
+        confusions = sorted(
+            [(confusion[i][j], classes[i], classes[j])
+             for i in range(num_classes) for j in range(num_classes)
+             if i != j and confusion[i][j]], reverse=True
+        )
+
         # График accuracy по классам
         try:
             import matplotlib.pyplot as plt
@@ -82,14 +88,32 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None):
             fig.savefig(os.path.join(results_dir, "confusion_matrix.png"), dpi=180)
             plt.close(fig)
 
+            if diagnosis:
+                ranked = sorted(zip(classes, class_accuracy), key=lambda item: item[1])
+                fig, ax = plt.subplots(figsize=(10, 8))
+                ax.barh([name for name, _ in ranked], [100 * value for _, value in ranked])
+                ax.set(xlabel="Accuracy, %", xlim=(0, 100), title="Accuracy по классам")
+                fig.tight_layout()
+                fig.savefig(os.path.join(results_dir, "class_accuracy.png"), dpi=200)
+                plt.close(fig)
+
+                top = confusions[:15][::-1]
+                fig, ax = plt.subplots(figsize=(11, 7))
+                ax.barh([f"{true} → {pred}" for _, true, pred in top],
+                        [count for count, _, _ in top])
+                ax.set(xlabel="Количество ошибок", title="Наиболее частые ошибки")
+                fig.tight_layout()
+                fig.savefig(os.path.join(results_dir, "top_confusions.png"), dpi=200)
+                plt.close(fig)
+
         except ImportError:
             print("matplotlib не установлен — графики не созданы.")
 
         # Короткий текстовый отчёт
         ranked = sorted(zip(classes, class_accuracy), key=lambda x: x[1])
 
-        weakest = ranked[:3]
-        strongest = ranked[-3:][::-1]
+        weakest = ranked[:5 if diagnosis else 3]
+        strongest = ranked[-(5 if diagnosis else 3):][::-1]
 
         report = [
             "ОТЧЁТ ОБ ЭКСПЕРИМЕНТЕ",
@@ -110,6 +134,12 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None):
 
         for name, value in strongest:
             report.append(f"- {name}: {value:.2%}")
+
+        if diagnosis:
+            report += ["", "Самые частые ошибки:"]
+            report += [f"- {true} -> {pred}: {count} ошибок"
+                       for count, true, pred in confusions[:10]]
+            print("\n".join(report))
 
         report += [
             "",
