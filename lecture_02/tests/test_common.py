@@ -1,6 +1,7 @@
 """Быстрые проверки без Oxford-IIIT Pet и скачивания весов."""
 
 import importlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -12,6 +13,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from torchvision.models import ResNet18_Weights
 
 from lecture_02.common.dataset import create_datasets
+from lecture_02.common.classes import BREEDS_5, BREEDS_25
 from lecture_02.common.evaluate import evaluate
 from lecture_02.common.experiment import ExperimentConfig, run_experiment
 from lecture_02.common.train import train_model, save_model, load_model
@@ -30,6 +32,20 @@ class TinyModel(nn.Module):
 
 
 class CommonTests(unittest.TestCase):
+    def test_25_classes_extend_original_five(self):
+        self.assertEqual(len(set(BREEDS_25)), 25)
+        self.assertEqual(BREEDS_25[:5], BREEDS_5)
+
+    def test_original_breeds_accuracy_counts_new_class_confusions(self):
+        loader = DataLoader(TensorDataset(torch.tensor([[0., 4.], [0., 4.], [4., 0.]]),
+                                         torch.tensor([0, 1, 0])), batch_size=2)
+        with tempfile.TemporaryDirectory() as directory:
+            evaluate(nn.Identity(), loader, "cpu", [BREEDS_5[0], "new"], directory)
+            metrics = json.loads((Path(directory) / "metrics.json").read_text())
+            self.assertEqual(metrics["original_5_total"], 2)
+            self.assertEqual(metrics["original_5_accuracy"], 0.5)
+            self.assertEqual(metrics["confusion_matrix"], [[1, 1], [0, 1]])
+
     def test_only_selected_layers_change(self):
         loader = DataLoader(
             TensorDataset(torch.ones(4, 2), torch.zeros(4, dtype=torch.long)),
@@ -156,10 +172,7 @@ class CommonTests(unittest.TestCase):
         with patch("lecture_02.common.experiment.run_experiment") as run:
             for name in (
                 "01_baseline_5",
-                "02_01_base_25_classes",
-                "02_02_diagnosis_lower_accuracy",
-                "02_03_finetunning",
-                "02_04_augmentation",
+                "02_baseline_25",
             ):
                 module = importlib.import_module("lecture_02.experiments." + name)
                 self.assertIsInstance(module.CONFIG, ExperimentConfig)

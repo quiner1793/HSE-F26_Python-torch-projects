@@ -3,12 +3,11 @@
 BREEDS_5 = ("Beagle", "Pug", "Samoyed", "Shiba Inu", "Yorkshire Terrier")
 
 # Oxford-IIIT Pet: здесь есть и собаки, и кошки.
-BREEDS_25 = (
+BREEDS_25 = BREEDS_5 + (
     "Abyssinian",
     "American Bulldog",
     "American Pit Bull Terrier",
     "Basset Hound",
-    "Beagle",
     "Bengal",
     "Birman",
     "Bombay",
@@ -25,8 +24,4 @@ BREEDS_25 = (
     "Keeshond",
     "Leonberger",
     "Maine Coon",
-    "Miniature Pinscher",
-    "Newfoundland",
-    "Persian",
-    "Pomeranian",
 )

@@ -1,7 +1,11 @@
 """Общий сценарий: данные → обучение/загрузка → оценка → реальное фото."""
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import json
+import random
 from pathlib import Path
+
+import torch
 
 from .config import DATA_ROOT, DEVICE
 from .dataset import create_datasets, create_loaders
@@ -29,9 +33,12 @@ class ExperimentConfig:
     reuse_checkpoint: bool = True
     image_path: Path | None = None
     data_root: Path = DATA_ROOT
+    seed: int = 42
 
 
 def run_experiment(config: ExperimentConfig):
+    random.seed(config.seed)
+    torch.manual_seed(config.seed)
     print("device:", DEVICE)
     use_checkpoint = config.reuse_checkpoint and config.model_path.exists()
     if config.evaluate_only and not use_checkpoint:
@@ -46,6 +53,7 @@ def run_experiment(config: ExperimentConfig):
     train_ds, test_ds = create_datasets(config.data_root, config.classes, train_transform, test_transform)
     train_loader, test_loader = create_loaders(train_ds, test_ds, config.batch_size)
     if not use_checkpoint:
+        history = []
         model = train_model(
             model,
             train_loader,
@@ -54,8 +62,14 @@ def run_experiment(config: ExperimentConfig):
             config.learning_rate,
             config.momentum,
             config.backbone_lr,
+            history=history,
         )
         save_model(model, config.classes, config.model_path)
+        config.results_dir.mkdir(parents=True, exist_ok=True)
+        (config.results_dir / "training.json").write_text(
+            json.dumps({"config": asdict(config), "history": history}, default=str, indent=2),
+            encoding="utf-8",
+        )
 
     accuracy = evaluate(
         model,

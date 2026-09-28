@@ -1,7 +1,10 @@
 import os
+import json
 from datetime import datetime
 
 import torch
+
+from .classes import BREEDS_5
 
 
 def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnosis=False):
@@ -14,6 +17,7 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
 
     correct = 0
     total = 0
+    top5_correct = 0
 
     class_correct = [0] * num_classes
     class_total = [0] * num_classes
@@ -25,7 +29,9 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
             X = X.to(device)
             y = y.to(device)
 
-            pred = model(X).argmax(dim=1)
+            logits = model(X)
+            pred = logits.argmax(dim=1)
+            top5_correct += (logits.topk(min(5, num_classes), dim=1).indices == y[:, None]).any(dim=1).sum().item()
 
             correct += (pred == y).sum().item()
             total += y.size(0)
@@ -45,6 +51,19 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
         os.makedirs(results_dir, exist_ok=True)
 
         class_accuracy = [class_correct[i] / class_total[i] if class_total[i] else 0.0 for i in range(num_classes)]
+        original_indices = [i for i, name in enumerate(classes) if name in BREEDS_5]
+        original_total = sum(class_total[i] for i in original_indices)
+        original_correct = sum(class_correct[i] for i in original_indices)
+        metrics = {
+            "classes": list(classes), "total": total, "correct": correct, "accuracy": accuracy,
+            "top5_accuracy": top5_correct / total if total else None,
+            "class_total": class_total, "class_correct": class_correct,
+            "confusion_matrix": confusion,
+            "original_5_total": original_total,
+            "original_5_accuracy": original_correct / original_total if original_total else None,
+        }
+        with open(os.path.join(results_dir, "metrics.json"), "w", encoding="utf-8") as f:
+            json.dump(metrics, f, indent=2)
 
         confusions = sorted(
             [
@@ -124,6 +143,9 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
             f"Тестовых изображений: {total}",
             f"Правильных предсказаний: {correct}",
             f"Accuracy: {accuracy:.2%}",
+            f"Top-5 accuracy: {top5_correct / total:.2%}" if total else "Top-5 accuracy: n/a",
+            f"Accuracy на исходных пяти породах: {original_correct / original_total:.2%}"
+            if original_total else "Исходные пять пород: нет примеров",
             "",
             "Самые слабые классы:",
         ]
