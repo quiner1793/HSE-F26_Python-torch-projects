@@ -191,9 +191,13 @@ def save_unknown_results(config, metadata, records, metrics, curve, threshold=No
     ax.axvline(limit, linestyle="--", color="#b84050", label=f"Лимит ложных отказов: {limit:g}%")
     if threshold is not None:
         for split, marker in (("validation", "o"), ("test", "x")):
-            ax.scatter(100 * metrics[f"known_{split}"]["false_rejection_rate"],
-                       100 * metrics[f"unknown_{split}"]["unknown_detection_rate"],
-                       marker=marker, label=f"Выбранный порог: {split}", zorder=3)
+            ax.scatter(
+                100 * metrics[f"known_{split}"]["false_rejection_rate"],
+                100 * metrics[f"unknown_{split}"]["unknown_detection_rate"],
+                marker=marker,
+                label=f"Выбранный порог: {split}",
+                zorder=3,
+            )
     ax.set(
         xlabel="Ложный отказ на известных, %",
         ylabel="Обнаружение unknown, %",
@@ -209,22 +213,35 @@ def save_unknown_results(config, metadata, records, metrics, curve, threshold=No
 
     if threshold is not None:
         title = "U02: ПОРОГ УВЕРЕННОСТИ" if score == "confidence" else "U03: РАЗНИЦА ДВУХ ЛУЧШИХ ОТВЕТОВ"
-        report = [title, "",
-                  f"Правило: {score} < {threshold:.10f} -> unknown",
-                  f"Порог выбран только на validation; лимит ложного отказа: {limit:g}%."]
+        report = [
+            title,
+            "",
+            f"Правило: {score} < {threshold:.10f} -> unknown",
+            f"Порог выбран только на validation; лимит ложного отказа: {limit:g}%.",
+        ]
         for split in ("validation", "test"):
             known, unknown = metrics[f"known_{split}"], metrics[f"unknown_{split}"]
             accepted_accuracy = known["accuracy_accepted_known"]
-            report += ["", split.upper(),
-                       f"Unknown обнаружено: {unknown['rejected']}/{unknown['total']} ({unknown['unknown_detection_rate']:.2%})",
-                       f"Ложный отказ на известных: {known['rejected']}/{known['total']} ({known['false_rejection_rate']:.2%})",
-                       f"Accuracy на всех известных (отказ = ошибка): {known['accuracy_all_known']:.2%}",
-                       f"Доля принятых известных: {known['acceptance_rate']:.2%}",
-                       (f"Accuracy среди принятых известных: {accepted_accuracy:.2%}"
-                        if accepted_accuracy is not None else "Принятых известных нет"),
-                       "Ложные отказы по породам:"]
-            for name, values in sorted(known["per_class"].items(), key=lambda item: item[1]["false_rejection_rate"], reverse=True)[:5]:
-                report.append(f"- {name}: {values['rejected']}/{values['total']} ({values['false_rejection_rate']:.2%})")
+            report += [
+                "",
+                split.upper(),
+                f"Unknown обнаружено: {unknown['rejected']}/{unknown['total']} ({unknown['unknown_detection_rate']:.2%})",
+                f"Ложный отказ на известных: {known['rejected']}/{known['total']} ({known['false_rejection_rate']:.2%})",
+                f"Accuracy на всех известных (отказ = ошибка): {known['accuracy_all_known']:.2%}",
+                f"Доля принятых известных: {known['acceptance_rate']:.2%}",
+                (
+                    f"Accuracy среди принятых известных: {accepted_accuracy:.2%}"
+                    if accepted_accuracy is not None
+                    else "Принятых известных нет"
+                ),
+                "Ложные отказы по породам:",
+            ]
+            for name, values in sorted(
+                known["per_class"].items(), key=lambda item: item[1]["false_rejection_rate"], reverse=True
+            )[:5]:
+                report.append(
+                    f"- {name}: {values['rejected']}/{values['total']} ({values['false_rejection_rate']:.2%})"
+                )
         report += ["", "Unknown в этом опыте: кошки. Результат не описывает все неизвестные объекты."]
         (directory / "report.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
         print("\n".join(report))
@@ -311,11 +328,11 @@ def select_threshold(known_validation, unknown_validation, max_false_rejection, 
     if not 0 <= max_false_rejection < 1:
         raise ValueError("Лимит ложного отказа должен быть в диапазоне [0, 1)")
     curve = rejection_curve(known_validation, unknown_validation, score)
-    feasible = [row for row in curve if row["false_rejection_rate"] <= max_false_rejection
-                and row["threshold"] <= 1]
+    feasible = [row for row in curve if row["false_rejection_rate"] <= max_false_rejection and row["threshold"] <= 1]
     # Ties: prefer fewer known rejections, then the smallest threshold.
-    selected = max(feasible, key=lambda row: (row["unknown_detection_rate"],
-                   -row["false_rejection_rate"], -row["threshold"]))
+    selected = max(
+        feasible, key=lambda row: (row["unknown_detection_rate"], -row["false_rejection_rate"], -row["threshold"])
+    )
     return selected["threshold"], curve
 
 
@@ -323,13 +340,17 @@ def threshold_metrics(records, known, threshold, high_confidence=0.9, score="con
     result = summarize_predictions(records, known, high_confidence)
     accepted = [row for row in records if not is_unknown(row[score], threshold)]
     rejected = len(records) - len(accepted)
-    result.update({"rejected": rejected, "accepted": len(accepted),
-                   "acceptance_rate": len(accepted) / len(records)})
+    result.update({"rejected": rejected, "accepted": len(accepted), "acceptance_rate": len(accepted) / len(records)})
     if known:
         correct = sum(row["target"] == row["prediction"] for row in accepted)
-        result.update({"correct": correct, "accuracy_all_known": correct / len(records),
-                       "accuracy_accepted_known": correct / len(accepted) if accepted else None,
-                       "false_rejection_rate": rejected / len(records)})
+        result.update(
+            {
+                "correct": correct,
+                "accuracy_all_known": correct / len(records),
+                "accuracy_accepted_known": correct / len(accepted) if accepted else None,
+                "false_rejection_rate": rejected / len(records),
+            }
+        )
         per_class = {}
         for row in records:
             name = row.get("true_class", str(row["target"]))
@@ -340,11 +361,14 @@ def threshold_metrics(records, known, threshold, high_confidence=0.9, score="con
             counts["false_rejection_rate"] = counts["rejected"] / counts["total"]
         result["per_class"] = per_class
     else:
-        result.update({"unknown_detection_rate": rejected / len(records),
-                       "unknown_false_acceptance_rate": len(accepted) / len(records)})
+        result.update(
+            {
+                "unknown_detection_rate": rejected / len(records),
+                "unknown_false_acceptance_rate": len(accepted) / len(records),
+            }
+        )
     result["high_confidence_errors"] = sum(
-        row["confidence"] >= high_confidence and (not known or row["target"] != row["prediction"])
-        for row in accepted
+        row["confidence"] >= high_confidence and (not known or row["target"] != row["prediction"]) for row in accepted
     )
     return result
 
@@ -359,16 +383,31 @@ def run_threshold_experiment(config):
     for rows in records.values():
         if any(not math.isfinite(row[config.score]) or not 0 <= row[config.score] <= 1 for row in rows):
             raise ValueError(f"Некорректная {config.score} в исходных предсказаниях")
-    threshold, curve = select_threshold(records["known_validation"], records["unknown_validation"],
-                                        config.max_false_rejection, config.score)
-    metrics = {name: threshold_metrics(rows, name.startswith("known_"), threshold,
-                                       source["config"]["high_confidence"], config.score)
-               for name, rows in records.items()}
-    metadata = dict(source["metadata"], source_sha256=file_digest(config.source_path),
-                    classes=source["config"]["classes"])
-    save_unknown_results(config, metadata, records, metrics, curve, threshold=threshold,
-                         selection={"split": "validation", "max_false_rejection": config.max_false_rejection,
-                                    "tie_break": "fewer_known_rejections_then_smallest_threshold"})
+    threshold, curve = select_threshold(
+        records["known_validation"], records["unknown_validation"], config.max_false_rejection, config.score
+    )
+    metrics = {
+        name: threshold_metrics(
+            rows, name.startswith("known_"), threshold, source["config"]["high_confidence"], config.score
+        )
+        for name, rows in records.items()
+    }
+    metadata = dict(
+        source["metadata"], source_sha256=file_digest(config.source_path), classes=source["config"]["classes"]
+    )
+    save_unknown_results(
+        config,
+        metadata,
+        records,
+        metrics,
+        curve,
+        threshold=threshold,
+        selection={
+            "split": "validation",
+            "max_false_rejection": config.max_false_rejection,
+            "tie_break": "fewer_known_rejections_then_smallest_threshold",
+        },
+    )
     print(f"Результаты: {config.results_dir}")
     return metrics
 

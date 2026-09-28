@@ -17,6 +17,12 @@ from lecture_02.common.dataset import _stratified_indices
 from lecture_02.common.train import save_model
 from lecture_02.common.decision import is_unknown
 from lecture_02.common.predict import predict_image
+from lecture_02.common.open_set import (
+    build_class_prototypes,
+    collect_distance_predictions,
+    distance_metrics,
+    select_distance_threshold,
+)
 from lecture_02.common.unknown import (
     UnknownConfig,
     collect_predictions,
@@ -47,6 +53,39 @@ class FakePets:
 
 
 class UnknownTests(unittest.TestCase):
+    def test_feature_distance_uses_known_prototypes(self):
+        class FeatureModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc = nn.Linear(2, 2, bias=False)
+
+            def forward(self, inputs):
+                return self.fc(inputs)
+
+        model = FeatureModel()
+        with torch.no_grad():
+            model.fc.weight.copy_(torch.eye(2))
+        train = DataLoader(
+            TensorDataset(torch.tensor([[1.0, 0.0], [0.8, 0.0], [0.0, 1.0], [0.0, 0.8]]), torch.tensor([0, 0, 1, 1])),
+            batch_size=2,
+        )
+        prototypes, counts = build_class_prototypes(model, train, "cpu", 2)
+        self.assertEqual(counts, [2, 2])
+        self.assertTrue(torch.allclose(prototypes, torch.eye(2)))
+        test = DataLoader(TensorDataset(torch.tensor([[1.0, 0.0], [1.0, 1.0]]), torch.tensor([0, 0])), batch_size=2)
+        rows = collect_distance_predictions(model, test, "cpu", prototypes)
+        self.assertAlmostEqual(rows[0]["distance"], 0.0)
+        self.assertAlmostEqual(rows[1]["distance"], 1 - 2**-0.5, places=6)
+
+    def test_distance_threshold_uses_only_known_validation(self):
+        known = [{"distance": value / 100, "target": 0, "prediction": 0} for value in range(100)]
+        threshold = select_distance_threshold(known, 0.05)
+        self.assertEqual(threshold, 0.94)
+        self.assertEqual(distance_metrics(known, True, threshold)["rejected"], 5)
+        unknown = [{"distance": 0.0, "prediction": 0}, {"distance": 2.0, "prediction": 0}]
+        self.assertEqual(threshold, select_distance_threshold(known, 0.05))
+        self.assertEqual(distance_metrics(unknown, False, threshold)["unknown_detection_rate"], 0.5)
+
     def test_margin_decision_matches_cached_scores(self):
         logits = torch.tensor([[0.6, 0.35, 0.05]]).log()
         loader = DataLoader(TensorDataset(logits, torch.tensor([0])))
@@ -57,24 +96,33 @@ class UnknownTests(unittest.TestCase):
             path = Path(directory) / "image.png"
             Image.new("RGB", (2, 2)).save(path)
             transform = lambda image: logits[0]
-            label, confidence = predict_image(nn.Identity(), path, transform, ["a", "b", "c"], "cpu",
-                                               threshold=0.3, score="margin")
+            label, confidence = predict_image(
+                nn.Identity(), path, transform, ["a", "b", "c"], "cpu", threshold=0.3, score="margin"
+            )
             self.assertEqual(label, "unknown")
             self.assertEqual(confidence, rows[0]["confidence"])
-            label, _ = predict_image(nn.Identity(), path, transform, ["a", "b", "c"], "cpu",
-                                     threshold=rows[0]["margin"], score="margin")
+            label, _ = predict_image(
+                nn.Identity(), path, transform, ["a", "b", "c"], "cpu", threshold=rows[0]["margin"], score="margin"
+            )
             self.assertEqual(label, "a")
 
     def test_margin_selection_does_not_use_test_predictions(self):
         def row(margin):
             return dict(confidence=0.95, margin=margin, target=0, prediction=0)
+
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "source.json"
-            source = {"method": "no_rejection", "metadata": {},
-                      "config": {"classes": ["a", "b"], "high_confidence": 0.9},
-                      "predictions": {"known_validation": [row(0.4), row(0.8)],
-                                      "unknown_validation": [row(0.1), row(0.3)],
-                                      "known_test": [row(0.2)], "unknown_test": [row(0.2)]}}
+            source = {
+                "method": "no_rejection",
+                "metadata": {},
+                "config": {"classes": ["a", "b"], "high_confidence": 0.9},
+                "predictions": {
+                    "known_validation": [row(0.4), row(0.8)],
+                    "unknown_validation": [row(0.1), row(0.3)],
+                    "known_test": [row(0.2)],
+                    "unknown_test": [row(0.2)],
+                },
+            }
             config = ThresholdConfig(path, Path(directory) / "results", score="margin")
             thresholds = []
             for test_margin in (0.0, 1.0):
@@ -94,9 +142,11 @@ class UnknownTests(unittest.TestCase):
         self.assertTrue(is_unknown(0.1, threshold))
 
     def test_rejecting_correct_predictions_counts_as_error(self):
-        rows = [dict(target=0, prediction=0, confidence=0.4),
-                dict(target=0, prediction=0, confidence=0.8),
-                dict(target=0, prediction=1, confidence=0.9)]
+        rows = [
+            dict(target=0, prediction=0, confidence=0.4),
+            dict(target=0, prediction=0, confidence=0.8),
+            dict(target=0, prediction=1, confidence=0.9),
+        ]
         result = threshold_metrics(rows, True, 0.5)
         self.assertEqual(result["accuracy_all_known"], 1 / 3)
         self.assertEqual(result["accuracy_accepted_known"], 0.5)
