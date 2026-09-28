@@ -15,8 +15,12 @@ from lecture_02.common.classes import BREEDS_25, CAT_BREEDS
 from lecture_02.common.dataset import _stratified_indices
 from lecture_02.common.train import save_model
 from lecture_02.common.unknown import (
-    UnknownConfig, collect_predictions, create_unknown_datasets,
-    rejection_curve, run_unknown_baseline, summarize_predictions,
+    UnknownConfig,
+    collect_predictions,
+    create_unknown_datasets,
+    rejection_curve,
+    run_unknown_baseline,
+    summarize_predictions,
 )
 
 
@@ -24,8 +28,9 @@ class FakePets:
     classes = list(BREEDS_25 + CAT_BREEDS)
 
     def __init__(self, **kwargs):
-        self.items = [(torch.tensor([float(i % 2), 1.0]), label)
-                      for label in range(len(self.classes)) for i in range(4)]
+        self.items = [
+            (torch.tensor([float(i % 2), 1.0]), label) for label in range(len(self.classes)) for i in range(4)
+        ]
 
     def __len__(self):
         return len(self.items)
@@ -52,7 +57,7 @@ class UnknownTests(unittest.TestCase):
             self.assertTrue(torch.all(dataset[0][0] >= 10))
 
     def test_predictions_and_unknown_label_collision(self):
-        loader = DataLoader(TensorDataset(torch.tensor([[5., 0.], [0., 1.]]), torch.tensor([0, 0])), batch_size=2)
+        loader = DataLoader(TensorDataset(torch.tensor([[5.0, 0.0], [0.0, 1.0]]), torch.tensor([0, 0])), batch_size=2)
         rows = collect_predictions(nn.Identity(), loader, "cpu")
         self.assertEqual([row["prediction"] for row in rows], [0, 1])
         self.assertAlmostEqual(rows[0]["margin"], 2 * rows[0]["confidence"] - 1)
@@ -81,9 +86,17 @@ class UnknownTests(unittest.TestCase):
             config = UnknownConfig(BREEDS_25, root / "model.pth", root / "source.json", root / "results", root)
             save_model(nn.Linear(2, 25), BREEDS_25, config.model_path)
             saved = config.model_path.read_bytes()
-            config.source_experiment_path.write_text(json.dumps({"config": {
-                "classes": list(BREEDS_25), "seed": 42, "validation_fraction": 0.2,
-            }}))
+            config.source_experiment_path.write_text(
+                json.dumps(
+                    {
+                        "config": {
+                            "classes": list(BREEDS_25),
+                            "seed": 42,
+                            "validation_fraction": 0.2,
+                        }
+                    }
+                )
+            )
             annotations = root / "oxford-iiit-pet" / "annotations"
             annotations.mkdir(parents=True)
             for split in ("trainval", "test"):
@@ -99,9 +112,15 @@ class UnknownTests(unittest.TestCase):
                 run_unknown_baseline(config)
             factory.assert_called_once_with(25, pretrained=False)
             self.assertEqual(config.model_path.read_bytes(), saved)
-            self.assertEqual({path.name for path in config.results_dir.iterdir()}, {
-                "report.txt", "experiment.json", "score_distribution.png", "rejection_tradeoff.png",
-            })
+            self.assertEqual(
+                {path.name for path in config.results_dir.iterdir()},
+                {
+                    "report.txt",
+                    "experiment.json",
+                    "score_distribution.png",
+                    "rejection_tradeoff.png",
+                },
+            )
             data = json.loads((config.results_dir / "experiment.json").read_text())
             self.assertIsNone(data["threshold"])
             self.assertEqual(data["method"], "no_rejection")
@@ -109,9 +128,13 @@ class UnknownTests(unittest.TestCase):
             rows = data["predictions"]["unknown_validation"]
             self.assertTrue(all(row["true_class"] in CAT_BREEDS for row in rows))
             self.assertEqual(len({row["source_index"] for row in rows}), len(rows))
-            self.assertEqual(data["validation_rejection_curve"], rejection_curve(
-                data["predictions"]["known_validation"], data["predictions"]["unknown_validation"],
-            ))
+            self.assertEqual(
+                data["validation_rejection_curve"],
+                rejection_curve(
+                    data["predictions"]["known_validation"],
+                    data["predictions"]["unknown_validation"],
+                ),
+            )
 
     def test_import_does_not_run_and_missing_checkpoint_fails_before_data(self):
         with patch("lecture_02.common.unknown.run_unknown_baseline") as run:

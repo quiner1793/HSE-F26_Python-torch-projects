@@ -3,9 +3,18 @@
 BREEDS_5 = ("Beagle", "Pug", "Samoyed", "Shiba Inu", "Yorkshire Terrier")
 
 CAT_BREEDS = (
-    "Abyssinian", "Bengal", "Birman", "Bombay", "British Shorthair",
-    "Egyptian Mau", "Maine Coon", "Persian", "Ragdoll", "Russian Blue",
-    "Siamese", "Sphynx",
+    "Abyssinian",
+    "Bengal",
+    "Birman",
+    "Bombay",
+    "British Shorthair",
+    "Egyptian Mau",
+    "Maine Coon",
+    "Persian",
+    "Ragdoll",
+    "Russian Blue",
+    "Siamese",
+    "Sphynx",
 )
 
 # Все 25 пород собак из Oxford-IIIT Pet.
