@@ -2,19 +2,13 @@
 
 BREEDS_5 = ("Beagle", "Pug", "Samoyed", "Shiba Inu", "Yorkshire Terrier")
 
-# Oxford-IIIT Pet: здесь есть и собаки, и кошки.
+# Все 25 пород собак из Oxford-IIIT Pet.
 BREEDS_25 = BREEDS_5 + (
-    "Abyssinian",
     "American Bulldog",
     "American Pit Bull Terrier",
     "Basset Hound",
-    "Bengal",
-    "Birman",
-    "Bombay",
     "Boxer",
-    "British Shorthair",
     "Chihuahua",
-    "Egyptian Mau",
     "English Cocker Spaniel",
     "English Setter",
     "German Shorthaired",
@@ -23,5 +17,11 @@ BREEDS_25 = BREEDS_5 + (
     "Japanese Chin",
     "Keeshond",
     "Leonberger",
-    "Maine Coon",
+    "Miniature Pinscher",
+    "Newfoundland",
+    "Pomeranian",
+    "Saint Bernard",
+    "Scottish Terrier",
+    "Staffordshire Bull Terrier",
+    "Wheaten Terrier",
 )

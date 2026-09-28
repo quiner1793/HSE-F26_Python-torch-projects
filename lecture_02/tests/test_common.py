@@ -35,6 +35,12 @@ class CommonTests(unittest.TestCase):
     def test_25_classes_extend_original_five(self):
         self.assertEqual(len(set(BREEDS_25)), 25)
         self.assertEqual(BREEDS_25[:5], BREEDS_5)
+        # cat_breeds = {
+        #     "Abyssinian", "Bengal", "Birman", "Bombay", "British Shorthair",
+        #     "Egyptian Mau", "Maine Coon", "Persian", "Ragdoll", "Russian Blue",
+        #     "Siamese", "Sphynx",
+        # }
+        # self.assertTrue(cat_breeds.isdisjoint(BREEDS_25))
 
     def test_original_breeds_accuracy_counts_new_class_confusions(self):
         loader = DataLoader(
