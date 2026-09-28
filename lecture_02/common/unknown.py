@@ -167,10 +167,6 @@ def save_unknown_results(config, metadata, records, metrics, curve):
                    "Частые ответы на unknown:"]
         for index, count in sorted(unknown["predicted_class_counts"].items(), key=lambda item: item[1], reverse=True)[:5]:
             report.append(f"- {config.classes[int(index)]}: {count}")
-    report += ["", "Вывод: все unknown приняты за известные породы, поскольку отказ не предусмотрен.",
-               "Следующий опыт U02: выбрать порог на validation с ложным отказом не более 5%.",
-               "Кривая показывает возможные пороги; рабочий порог в U01 не выбирается.",
-               "Проверка unknown ограничена кошками Oxford-IIIT Pet."]
     (directory / "report.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
     print("\n".join(report))
 
