@@ -1,4 +1,5 @@
 """Partial fine-tuning: layer4 + fc с разными learning rate."""
+
 from lecture_02.common.classes import BREEDS_25
 from lecture_02.common.config import MODELS_DIR, RESULTS_DIR
 from lecture_02.common.experiment import ExperimentConfig, run_experiment

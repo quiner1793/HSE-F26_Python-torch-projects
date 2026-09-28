@@ -30,9 +30,7 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
             correct += (pred == y).sum().item()
             total += y.size(0)
 
-            for true_class, predicted_class in zip(
-                y.cpu().tolist(), pred.cpu().tolist()
-            ):
+            for true_class, predicted_class in zip(y.cpu().tolist(), pred.cpu().tolist()):
                 class_total[true_class] += 1
                 confusion[true_class][predicted_class] += 1
 
@@ -46,15 +44,16 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
     if results_dir:
         os.makedirs(results_dir, exist_ok=True)
 
-        class_accuracy = [
-            class_correct[i] / class_total[i] if class_total[i] else 0.0
-            for i in range(num_classes)
-        ]
+        class_accuracy = [class_correct[i] / class_total[i] if class_total[i] else 0.0 for i in range(num_classes)]
 
         confusions = sorted(
-            [(confusion[i][j], classes[i], classes[j])
-             for i in range(num_classes) for j in range(num_classes)
-             if i != j and confusion[i][j]], reverse=True
+            [
+                (confusion[i][j], classes[i], classes[j])
+                for i in range(num_classes)
+                for j in range(num_classes)
+                if i != j and confusion[i][j]
+            ],
+            reverse=True,
         )
 
         # График accuracy по классам
@@ -99,8 +98,10 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
 
                 top = confusions[:15][::-1]
                 fig, ax = plt.subplots(figsize=(11, 7))
-                ax.barh([f"{true} → {pred}" for _, true, pred in top],
-                        [count for count, _, _ in top])
+                ax.barh(
+                    [f"{true} → {pred}" for _, true, pred in top],
+                    [count for count, _, _ in top],
+                )
                 ax.set(xlabel="Количество ошибок", title="Наиболее частые ошибки")
                 fig.tight_layout()
                 fig.savefig(os.path.join(results_dir, "top_confusions.png"), dpi=200)
@@ -112,8 +113,8 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
         # Короткий текстовый отчёт
         ranked = sorted(zip(classes, class_accuracy), key=lambda x: x[1])
 
-        weakest = ranked[:5 if diagnosis else 3]
-        strongest = ranked[-(5 if diagnosis else 3):][::-1]
+        weakest = ranked[: 5 if diagnosis else 3]
+        strongest = ranked[-(5 if diagnosis else 3) :][::-1]
 
         report = [
             "ОТЧЁТ ОБ ЭКСПЕРИМЕНТЕ",
@@ -137,8 +138,7 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
 
         if diagnosis:
             report += ["", "Самые частые ошибки:"]
-            report += [f"- {true} -> {pred}: {count} ошибок"
-                       for count, true, pred in confusions[:10]]
+            report += [f"- {true} -> {pred}: {count} ошибок" for count, true, pred in confusions[:10]]
             print("\n".join(report))
 
         report += [

@@ -1,4 +1,5 @@
 """Базовое задание: 5 пород."""
+
 from lecture_02.common.classes import BREEDS_5
 from lecture_02.common.config import MODELS_DIR, RESULTS_DIR, REAL_DATA_DIR
 from lecture_02.common.experiment import ExperimentConfig, run_experiment

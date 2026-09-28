@@ -1,4 +1,5 @@
 """Запуск базового задания на 5 пород: python main.py."""
+
 from importlib import import_module
 
 
@@ -8,6 +9,7 @@ def main():
     if not __package__:
         import sys
         from pathlib import Path
+
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     return import_module(f"{package}.01_baseline_5").main()
 

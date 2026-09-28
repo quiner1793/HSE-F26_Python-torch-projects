@@ -1,4 +1,5 @@
 """Общий сценарий: данные → обучение/загрузка → оценка → реальное фото."""
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,24 +40,34 @@ def run_experiment(config: ExperimentConfig):
     # При загрузке checkpoint не скачиваем ImageNet-веса.
     model, weights = create_model(len(config.classes), pretrained=not use_checkpoint)
     if use_checkpoint:
-        model, _ = load_model(model, config.model_path, DEVICE,
-                              expected_classes=config.classes)
+        model, _ = load_model(model, config.model_path, DEVICE, expected_classes=config.classes)
 
     train_transform, test_transform = create_transforms(weights, config.augmentation)
-    train_ds, test_ds = create_datasets(config.data_root, config.classes,
-                                       train_transform, test_transform)
+    train_ds, test_ds = create_datasets(config.data_root, config.classes, train_transform, test_transform)
     train_loader, test_loader = create_loaders(train_ds, test_ds, config.batch_size)
     if not use_checkpoint:
-        model = train_model(model, train_loader, DEVICE, config.epochs,
-                            config.learning_rate, config.momentum, config.backbone_lr)
+        model = train_model(
+            model,
+            train_loader,
+            DEVICE,
+            config.epochs,
+            config.learning_rate,
+            config.momentum,
+            config.backbone_lr,
+        )
         save_model(model, config.classes, config.model_path)
 
-    accuracy = evaluate(model, test_loader, DEVICE, classes=config.classes,
-                        results_dir=config.results_dir, diagnosis=config.diagnosis)
+    accuracy = evaluate(
+        model,
+        test_loader,
+        DEVICE,
+        classes=config.classes,
+        results_dir=config.results_dir,
+        diagnosis=config.diagnosis,
+    )
     if config.image_path is not None:
         if config.image_path.exists():
-            name, confidence = predict_image(model, config.image_path, test_transform,
-                                             config.classes, DEVICE)
+            name, confidence = predict_image(model, config.image_path, test_transform, config.classes, DEVICE)
             print("REAL CASE:", name, f"{confidence:.1%}")
         else:
             print(f"Фото для REAL CASE не найдено: {config.image_path}")

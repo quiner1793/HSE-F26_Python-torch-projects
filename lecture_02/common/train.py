@@ -1,4 +1,5 @@
 """Один цикл обучения для frozen backbone и partial fine-tuning."""
+
 from pathlib import Path
 
 import torch
@@ -18,8 +19,7 @@ def configure_training(model, learning_rate, backbone_lr=None):
     return groups
 
 
-def train_model(model, train_loader, device, epochs, learning_rate, momentum,
-                backbone_lr=None):
+def train_model(model, train_loader, device, epochs, learning_rate, momentum, backbone_lr=None):
     model = model.to(device)
     groups = configure_training(model, learning_rate, backbone_lr)
     criterion = torch.nn.CrossEntropyLoss()
@@ -41,8 +41,7 @@ def train_model(model, train_loader, device, epochs, learning_rate, momentum,
             total += y.size(0)
         if not total:
             raise ValueError("Обучающий датасет пуст")
-        print(f"epoch={epoch + 1}/{epochs} loss={running_loss / total:.4f} "
-              f"train_accuracy={correct / total:.2%}")
+        print(f"epoch={epoch + 1}/{epochs} loss={running_loss / total:.4f} " f"train_accuracy={correct / total:.2%}")
     return model
 
 
@@ -56,7 +55,9 @@ def load_model(model, path, device, expected_classes=None):
     checkpoint = torch.load(path, map_location=device, weights_only=True)
     classes = checkpoint["classes"]
     if expected_classes is not None and list(classes) != list(expected_classes):
-        raise ValueError("Классы или их порядок в checkpoint не совпадают с экспериментом. "
-                         "Выберите другой model_path или переобучите модель.")
+        raise ValueError(
+            "Классы или их порядок в checkpoint не совпадают с экспериментом. "
+            "Выберите другой model_path или переобучите модель."
+        )
     model.load_state_dict(checkpoint["model_state"])
     return model.to(device), classes
