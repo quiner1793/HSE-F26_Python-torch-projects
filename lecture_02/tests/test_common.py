@@ -37,8 +37,9 @@ class CommonTests(unittest.TestCase):
         self.assertEqual(BREEDS_25[:5], BREEDS_5)
 
     def test_original_breeds_accuracy_counts_new_class_confusions(self):
-        loader = DataLoader(TensorDataset(torch.tensor([[0., 4.], [0., 4.], [4., 0.]]),
-                                         torch.tensor([0, 1, 0])), batch_size=2)
+        loader = DataLoader(
+            TensorDataset(torch.tensor([[0.0, 4.0], [0.0, 4.0], [4.0, 0.0]]), torch.tensor([0, 1, 0])), batch_size=2
+        )
         with tempfile.TemporaryDirectory() as directory:
             evaluate(nn.Identity(), loader, "cpu", [BREEDS_5[0], "new"], directory)
             metrics = json.loads((Path(directory) / "metrics.json").read_text())

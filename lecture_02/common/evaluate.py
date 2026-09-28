@@ -55,9 +55,13 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
         original_total = sum(class_total[i] for i in original_indices)
         original_correct = sum(class_correct[i] for i in original_indices)
         metrics = {
-            "classes": list(classes), "total": total, "correct": correct, "accuracy": accuracy,
+            "classes": list(classes),
+            "total": total,
+            "correct": correct,
+            "accuracy": accuracy,
             "top5_accuracy": top5_correct / total if total else None,
-            "class_total": class_total, "class_correct": class_correct,
+            "class_total": class_total,
+            "class_correct": class_correct,
             "confusion_matrix": confusion,
             "original_5_total": original_total,
             "original_5_accuracy": original_correct / original_total if original_total else None,
@@ -144,8 +148,11 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
             f"Правильных предсказаний: {correct}",
             f"Accuracy: {accuracy:.2%}",
             f"Top-5 accuracy: {top5_correct / total:.2%}" if total else "Top-5 accuracy: n/a",
-            f"Accuracy на исходных пяти породах: {original_correct / original_total:.2%}"
-            if original_total else "Исходные пять пород: нет примеров",
+            (
+                f"Accuracy на исходных пяти породах: {original_correct / original_total:.2%}"
+                if original_total
+                else "Исходные пять пород: нет примеров"
+            ),
             "",
             "Самые слабые классы:",
         ]

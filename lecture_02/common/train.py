@@ -19,8 +19,7 @@ def configure_training(model, learning_rate, backbone_lr=None):
     return groups
 
 
-def train_model(model, train_loader, device, epochs, learning_rate, momentum, backbone_lr=None,
-                history=None):
+def train_model(model, train_loader, device, epochs, learning_rate, momentum, backbone_lr=None, history=None):
     model = model.to(device)
     groups = configure_training(model, learning_rate, backbone_lr)
     criterion = torch.nn.CrossEntropyLoss()
@@ -44,8 +43,7 @@ def train_model(model, train_loader, device, epochs, learning_rate, momentum, ba
             raise ValueError("Обучающий датасет пуст")
         print(f"epoch={epoch + 1}/{epochs} loss={running_loss / total:.4f} " f"train_accuracy={correct / total:.2%}")
         if history is not None:
-            history.append({"epoch": epoch + 1, "loss": running_loss / total,
-                            "train_accuracy": correct / total})
+            history.append({"epoch": epoch + 1, "loss": running_loss / total, "train_accuracy": correct / total})
     return model
 
 
