@@ -52,6 +52,7 @@ def run_experiment(config: ExperimentConfig):
     train_transform, test_transform = create_transforms(weights, config.augmentation)
     train_ds, test_ds = create_datasets(config.data_root, config.classes, train_transform, test_transform)
     train_loader, test_loader = create_loaders(train_ds, test_ds, config.batch_size)
+    history = None
     if not use_checkpoint:
         history = []
         model = train_model(
@@ -65,11 +66,10 @@ def run_experiment(config: ExperimentConfig):
             history=history,
         )
         save_model(model, config.classes, config.model_path)
-        config.results_dir.mkdir(parents=True, exist_ok=True)
-        (config.results_dir / "training.json").write_text(
-            json.dumps({"config": asdict(config), "history": history}, default=str, indent=2),
-            encoding="utf-8",
-        )
+    else:
+        experiment_path = config.results_dir / "experiment.json"
+        if experiment_path.exists():
+            history = json.loads(experiment_path.read_text(encoding="utf-8")).get("history")
 
     accuracy = evaluate(
         model,
@@ -78,6 +78,10 @@ def run_experiment(config: ExperimentConfig):
         classes=config.classes,
         results_dir=config.results_dir,
         diagnosis=config.diagnosis,
+        experiment={
+            "config": json.loads(json.dumps(asdict(config), default=str)),
+            "history": history,
+        },
     )
     if config.image_path is not None:
         if config.image_path.exists():

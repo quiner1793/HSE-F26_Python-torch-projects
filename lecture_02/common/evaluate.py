@@ -7,7 +7,7 @@ import torch
 from .classes import BREEDS_5
 
 
-def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnosis=False):
+def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnosis=False, experiment=None):
     model.eval()
 
     if classes is None:
@@ -66,8 +66,10 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
             "original_5_total": original_total,
             "original_5_accuracy": original_correct / original_total if original_total else None,
         }
-        with open(os.path.join(results_dir, "metrics.json"), "w", encoding="utf-8") as f:
-            json.dump(metrics, f, indent=2)
+        experiment_data = dict(experiment or {})
+        experiment_data["metrics"] = metrics
+        with open(os.path.join(results_dir, "experiment.json"), "w", encoding="utf-8") as f:
+            json.dump(experiment_data, f, indent=2)
 
         confusions = sorted(
             [
@@ -83,16 +85,13 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
         try:
             import matplotlib.pyplot as plt
 
-            fig, ax = plt.subplots(figsize=(12, 7))
-            ax.bar(range(num_classes), class_accuracy)
-            ax.set_title("Accuracy по классам")
-            ax.set_ylabel("Accuracy")
-            ax.set_ylim(0, 1)
-            ax.set_xticks(range(num_classes))
-            ax.set_xticklabels(classes, rotation=75, ha="right", fontsize=8)
-            ax.grid(axis="y", alpha=0.25)
+            ranked = sorted(zip(classes, class_accuracy), key=lambda item: item[1])
+            fig, ax = plt.subplots(figsize=(10, max(5, num_classes * 0.34)))
+            ax.barh([name for name, _ in ranked], [100 * value for _, value in ranked])
+            ax.set(xlabel="Accuracy, %", xlim=(0, 100), title="Accuracy по классам")
+            ax.grid(axis="x", alpha=0.25)
             fig.tight_layout()
-            fig.savefig(os.path.join(results_dir, "accuracy_by_class.png"), dpi=180)
+            fig.savefig(os.path.join(results_dir, "class_accuracy.png"), dpi=180)
             plt.close(fig)
 
             # Confusion matrix
@@ -110,26 +109,6 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
             fig.savefig(os.path.join(results_dir, "confusion_matrix.png"), dpi=180)
             plt.close(fig)
 
-            if diagnosis:
-                ranked = sorted(zip(classes, class_accuracy), key=lambda item: item[1])
-                fig, ax = plt.subplots(figsize=(10, 8))
-                ax.barh([name for name, _ in ranked], [100 * value for _, value in ranked])
-                ax.set(xlabel="Accuracy, %", xlim=(0, 100), title="Accuracy по классам")
-                fig.tight_layout()
-                fig.savefig(os.path.join(results_dir, "class_accuracy.png"), dpi=200)
-                plt.close(fig)
-
-                top = confusions[:15][::-1]
-                fig, ax = plt.subplots(figsize=(11, 7))
-                ax.barh(
-                    [f"{true} → {pred}" for _, true, pred in top],
-                    [count for count, _, _ in top],
-                )
-                ax.set(xlabel="Количество ошибок", title="Наиболее частые ошибки")
-                fig.tight_layout()
-                fig.savefig(os.path.join(results_dir, "top_confusions.png"), dpi=200)
-                plt.close(fig)
-
         except ImportError:
             print("matplotlib не установлен — графики не созданы.")
 
@@ -137,7 +116,6 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
         ranked = sorted(zip(classes, class_accuracy), key=lambda x: x[1])
 
         weakest = ranked[: 5 if diagnosis else 3]
-        strongest = ranked[-(5 if diagnosis else 3) :][::-1]
 
         report = [
             "ОТЧЁТ ОБ ЭКСПЕРИМЕНТЕ",
@@ -147,22 +125,21 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
             f"Тестовых изображений: {total}",
             f"Правильных предсказаний: {correct}",
             f"Accuracy: {accuracy:.2%}",
-            f"Top-5 accuracy: {top5_correct / total:.2%}" if total else "Top-5 accuracy: n/a",
-            (
-                f"Accuracy на исходных пяти породах: {original_correct / original_total:.2%}"
-                if original_total
-                else "Исходные пять пород: нет примеров"
-            ),
             "",
             "Самые слабые классы:",
         ]
 
+        if num_classes > 5:
+            report[7:7] = [
+                f"Top-5 accuracy: {top5_correct / total:.2%}" if total else "Top-5 accuracy: n/a",
+                (
+                    f"Accuracy на исходных пяти породах: {original_correct / original_total:.2%}"
+                    if original_total
+                    else "Исходные пять пород: нет примеров"
+                ),
+            ]
+
         for name, value in weakest:
-            report.append(f"- {name}: {value:.2%}")
-
-        report += ["", "Самые сильные классы:"]
-
-        for name, value in strongest:
             report.append(f"- {name}: {value:.2%}")
 
         if diagnosis:
@@ -173,9 +150,10 @@ def evaluate(model, test_loader, device, classes=None, results_dir=None, diagnos
         report += [
             "",
             "Файлы:",
-            "- accuracy_by_class.png",
+            "- class_accuracy.png",
             "- confusion_matrix.png",
             "- report.txt",
+            "- experiment.json",
         ]
 
         with open(os.path.join(results_dir, "report.txt"), "w", encoding="utf-8") as f:

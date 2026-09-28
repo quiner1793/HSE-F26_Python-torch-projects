@@ -42,7 +42,7 @@ class CommonTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory:
             evaluate(nn.Identity(), loader, "cpu", [BREEDS_5[0], "new"], directory)
-            metrics = json.loads((Path(directory) / "metrics.json").read_text())
+            metrics = json.loads((Path(directory) / "experiment.json").read_text())["metrics"]
             self.assertEqual(metrics["original_5_total"], 2)
             self.assertEqual(metrics["original_5_accuracy"], 0.5)
             self.assertEqual(metrics["confusion_matrix"], [[1, 1], [0, 1]])
@@ -113,10 +113,9 @@ class CommonTests(unittest.TestCase):
             self.assertAlmostEqual(accuracy, 2 / 3)
             for name in (
                 "report.txt",
-                "accuracy_by_class.png",
-                "confusion_matrix.png",
                 "class_accuracy.png",
-                "top_confusions.png",
+                "confusion_matrix.png",
+                "experiment.json",
             ):
                 self.assertTrue((Path(directory) / name).is_file())
             self.assertIn("b -> a: 1", (Path(directory) / "report.txt").read_text())
