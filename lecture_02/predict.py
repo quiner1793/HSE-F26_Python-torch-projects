@@ -111,9 +111,11 @@ def main():
     # parser.add_argument("--unknown", choices=("none", *POLICIES), default="none", help="Правило отказа")
     # parser.add_argument("--top-k", type=int, default=3, help="Сколько ближайших пород показать")
     # args = parser.parse_args()
-    image_path = "data/data_real/sima.jpg"
+
+    # image_path = "data/data_real/sima.jpg"
+    image_path = "data/data_real/praire_dog.jpg"
     model = "25_classes_validation"
-    unknown = "none"
+    unknown = "u04"
     top_k = 3
 
     result = predict(image_path, model, unknown, top_k)
