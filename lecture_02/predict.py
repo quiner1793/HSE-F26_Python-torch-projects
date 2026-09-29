@@ -36,6 +36,7 @@ POLICIES = {
 
 
 def load_probability_policy(experiment_path, checkpoint_path, classes, method):
+    """Загружает порог U02/U03 и проверяет его соответствие checkpoint."""
     experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
     score = "confidence" if method == "u02" else "margin"
     if experiment.get("method") != f"{score}_threshold":
@@ -48,6 +49,7 @@ def load_probability_policy(experiment_path, checkpoint_path, classes, method):
 
 
 def predict(image_path, model_name="25_classes_validation", unknown="none", top_k=3):
+    """Возвращает итоговый ответ, top-k пород и оценку выбранного правила."""
     if model_name not in MODELS:
         raise ValueError(f"Неизвестная модель: {model_name}")
     if unknown not in ("none", *POLICIES):
@@ -105,6 +107,7 @@ def predict(image_path, model_name="25_classes_validation", unknown="none", top_
 
 
 def main():
+    """Запускает демонстрацию предсказаний для одного изображения."""
     # parser = argparse.ArgumentParser(description="Предсказание породы собаки или unknown по фотографии")
     # parser.add_argument("image", type=Path, help="Путь к изображению")
     # parser.add_argument("--model", choices=MODELS, default="validation", help="Сохранённая модель")

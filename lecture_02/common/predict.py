@@ -5,6 +5,7 @@ from .decision import is_unknown
 
 
 def predict_image(model, image_path, transform, classes, device, threshold=None, score="confidence"):
+    """Предсказывает одну картинку; используется обычным запуском и U02/U03."""
     if score not in ("confidence", "margin"):
         raise ValueError("Оценка должна быть confidence или margin")
     image = Image.open(image_path).convert("RGB")

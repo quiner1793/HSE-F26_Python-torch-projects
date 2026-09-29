@@ -93,7 +93,7 @@ class UnknownTests(unittest.TestCase):
             ), patch(
                 "lecture_02.predict.DEVICE", "cpu"
             ):
-                cli_result = predict_from_cli(image_path, unknown="u04")
+                cli_result = predict_from_cli(image_path, model_name="validation", unknown="u04")
             payload = json.loads((config.results_dir / "experiment.json").read_text())
             self.assertEqual(len(payload["prototypes"]), 25)
             self.assertEqual(payload["selection"]["unknown_used"], False)

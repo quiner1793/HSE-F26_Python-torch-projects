@@ -4,6 +4,7 @@ import math
 
 
 def is_unknown(score, threshold=None):
+    """Проверяет правило U02/U03: score ниже порога означает unknown."""
     if threshold is None:
         return False
     if not math.isfinite(threshold) or not 0 <= threshold <= 1:

@@ -31,10 +31,11 @@ class FeatureDistanceConfig:
 
 
 def extract_features_and_logits(model, images):
-    """Return normalized features immediately before the classifier and its logits."""
+    """Возвращает признаки перед fc и logits; общая основа U04 и фото-предсказаний."""
     captured = []
 
     def capture_features(module, inputs):
+        """Запоминает вход fc через временный hook."""
         captured.append(inputs[0])
 
     if not hasattr(model, "fc"):
@@ -52,12 +53,14 @@ def extract_features_and_logits(model, images):
 
 
 def _feature_batches(model, loader, device):
+    """Подаёт батчи признаков и logits; внутренний помощник U04."""
     for images, targets in loader:
         features, logits = extract_features_and_logits(model, images.to(device))
         yield features, logits, targets.to(device)
 
 
 def build_class_prototypes(model, loader, device, num_classes):
+    """Строит центр каждой известной породы по train; первый этап U04."""
     sums = None
     counts = torch.zeros(num_classes, dtype=torch.long, device=device)
     for features, _, targets in _feature_batches(model, loader, device):
@@ -72,11 +75,13 @@ def build_class_prototypes(model, loader, device, num_classes):
 
 
 def nearest_prototype(features, prototypes):
+    """Находит ближайший центр и cosine similarity для каждого изображения."""
     similarities, indices = (features @ prototypes.T).max(dim=1)
     return similarities.clamp(-1.0, 1.0), indices
 
 
 def collect_distance_predictions(model, loader, device, prototypes):
+    """Сохраняет distance и ответ модели для validation/test U04."""
     records = []
     for features, logits, targets in _feature_batches(model, loader, device):
         probabilities, predictions = logits.softmax(dim=1).max(dim=1)
@@ -103,6 +108,7 @@ def collect_distance_predictions(model, loader, device, prototypes):
 
 
 def select_distance_threshold(known_validation, max_false_rejection):
+    """Выбирает границу distance только по известной validation U04."""
     if not 0 <= max_false_rejection < 1:
         raise ValueError("Лимит ложного отказа должен быть в диапазоне [0, 1)")
     distances = sorted(row["distance"] for row in known_validation)
@@ -114,6 +120,7 @@ def select_distance_threshold(known_validation, max_false_rejection):
 
 
 def is_unknown_distance(distance, threshold):
+    """Проверяет правило U04: distance выше порога означает unknown."""
     if not math.isfinite(threshold) or not 0 <= threshold <= 2:
         raise ValueError("Порог расстояния должен быть в диапазоне [0, 2]")
     if not math.isfinite(distance) or not 0 <= distance <= 2:
@@ -122,6 +129,7 @@ def is_unknown_distance(distance, threshold):
 
 
 def distance_metrics(records, known, threshold):
+    """Считает метрики U04 для известных или неизвестных изображений."""
     accepted = [row for row in records if not is_unknown_distance(row["distance"], threshold)]
     rejected = len(records) - len(accepted)
     result = {
@@ -162,6 +170,7 @@ def distance_metrics(records, known, threshold):
 
 
 def _add_source_metadata(dataset, rows):
+    """Добавляет исходный индекс и имя класса к строкам отчёта U04."""
     selected = dataset.dataset if isinstance(dataset, Subset) else dataset
     positions = dataset.indices if isinstance(dataset, Subset) else range(len(dataset))
     for row, position in zip(rows, positions):
@@ -170,6 +179,7 @@ def _add_source_metadata(dataset, rows):
 
 
 def _save_feature_distance_results(config, metadata, records, metrics, threshold, prototypes):
+    """Сохраняет policy U04, метрики, отчёт и визуализации."""
     import matplotlib.pyplot as plt
 
     directory = config.results_dir
@@ -289,6 +299,7 @@ def _save_feature_distance_results(config, metadata, records, metrics, threshold
 
 
 def run_feature_distance_experiment(config):
+    """Запускает полный U04: prototypes -> threshold -> оценка -> policy."""
     if not config.model_path.is_file():
         raise FileNotFoundError(f"Нужен обученный checkpoint: {config.model_path}")
     source = json.loads(config.source_experiment_path.read_text(encoding="utf-8"))
@@ -343,7 +354,7 @@ def run_feature_distance_experiment(config):
 
 
 def load_feature_distance_policy(experiment_path, checkpoint_path, classes, device):
-    """Load the threshold and prototypes matched to a checkpoint."""
+    """Загружает threshold и prototypes U04 с проверкой checkpoint."""
     experiment = json.loads(Path(experiment_path).read_text(encoding="utf-8"))
     if experiment.get("method") != "cosine_distance_to_class_prototype":
         raise ValueError("Нужен experiment.json опыта U04")
@@ -360,7 +371,7 @@ def load_feature_distance_policy(experiment_path, checkpoint_path, classes, devi
 
 
 def predict_unknown_image(image_path, experiment_path):
-    """Apply the saved U04 rule to one image, using its original checkpoint."""
+    """Применяет сохранённое правило U04 к одной фотографии."""
     experiment = json.loads(Path(experiment_path).read_text(encoding="utf-8"))
     classes = experiment["config"]["classes"]
     checkpoint_path = Path(experiment["config"]["model_path"])

@@ -31,11 +31,13 @@ class UnknownConfig:
 
 
 def file_digest(path):
+    """Возвращает SHA-256 файла; используется для проверки происхождения результатов."""
     with Path(path).open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
 def create_unknown_datasets(data_root, classes, transform, validation_fraction, seed):
+    """Создаёт известные и кошачьи validation/test; используется в U01."""
     if not 0 < validation_fraction < 1:
         raise ValueError("Нужна validation-выборка исходного эксперимента")
     if set(classes) & set(CAT_BREEDS):
@@ -60,6 +62,7 @@ def create_unknown_datasets(data_root, classes, transform, validation_fraction, 
 
 
 def collect_predictions(model, loader, device):
+    """Собирает класс, confidence и margin для каждой картинки; используется в U01."""
     model.eval()
     records = []
     with torch.inference_mode():
@@ -85,6 +88,7 @@ def collect_predictions(model, loader, device):
 
 
 def summarize_predictions(records, known, high_confidence):
+    """Считает базовые метрики без отказа; используется для отчёта U01."""
     if not records:
         raise ValueError("Нет предсказаний для отчёта")
     total = len(records)
@@ -117,6 +121,7 @@ def summarize_predictions(records, known, high_confidence):
 
 
 def rejection_curve(known_records, unknown_records, score="confidence"):
+    """Строит компромисс порога на validation; используется в U01-U03 для графика."""
     if score not in ("confidence", "margin"):
         raise ValueError("Оценка должна быть confidence или margin")
     known = sorted(row[score] for row in known_records)
@@ -135,6 +140,7 @@ def rejection_curve(known_records, unknown_records, score="confidence"):
 
 
 def save_unknown_results(config, metadata, records, metrics, curve, threshold=None, selection=None):
+    """Сохраняет JSON, отчёт и два графика для U01-U03."""
     import matplotlib.pyplot as plt
 
     score = getattr(config, "score", "confidence")
@@ -275,6 +281,7 @@ def save_unknown_results(config, metadata, records, metrics, curve, threshold=No
 
 
 def run_unknown_baseline(config):
+    """Запускает U01: модель без отказа на собаках и кошках."""
     if not config.model_path.is_file():
         raise FileNotFoundError(f"Нужен обученный checkpoint: {config.model_path}")
     source = json.loads(config.source_experiment_path.read_text(encoding="utf-8"))["config"]
@@ -325,6 +332,7 @@ class ThresholdConfig:
 
 
 def select_threshold(known_validation, unknown_validation, max_false_rejection, score="confidence"):
+    """Выбирает порог U02/U03 по validation с лимитом ложных отказов."""
     if not 0 <= max_false_rejection < 1:
         raise ValueError("Лимит ложного отказа должен быть в диапазоне [0, 1)")
     curve = rejection_curve(known_validation, unknown_validation, score)
@@ -337,6 +345,7 @@ def select_threshold(known_validation, unknown_validation, max_false_rejection, 
 
 
 def threshold_metrics(records, known, threshold, high_confidence=0.9, score="confidence"):
+    """Считает метрики после отказов; используется при формировании U02/U03."""
     result = summarize_predictions(records, known, high_confidence)
     accepted = [row for row in records if not is_unknown(row[score], threshold)]
     rejected = len(records) - len(accepted)
@@ -374,6 +383,7 @@ def threshold_metrics(records, known, threshold, high_confidence=0.9, score="con
 
 
 def run_threshold_experiment(config):
+    """Запускает общий сценарий U02 или U03 по сохранённым предсказаниям U01."""
     if config.score not in ("confidence", "margin"):
         raise ValueError("Оценка должна быть confidence или margin")
     source = json.loads(config.source_path.read_text(encoding="utf-8"))
@@ -413,4 +423,5 @@ def run_threshold_experiment(config):
 
 
 def run_confidence_threshold(config):
+    """Совместимое имя запуска U02; делегирует общему сценарию порога."""
     return run_threshold_experiment(config)
