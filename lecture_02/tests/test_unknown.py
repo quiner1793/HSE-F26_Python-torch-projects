@@ -17,10 +17,15 @@ from lecture_02.common.dataset import _stratified_indices
 from lecture_02.common.train import save_model
 from lecture_02.common.decision import is_unknown
 from lecture_02.common.predict import predict_image
+from lecture_02.predict import predict as predict_from_cli
 from lecture_02.common.open_set import (
+    FeatureDistanceConfig,
     build_class_prototypes,
     collect_distance_predictions,
     distance_metrics,
+    is_unknown_distance,
+    predict_unknown_image,
+    run_feature_distance_experiment,
     select_distance_threshold,
 )
 from lecture_02.common.unknown import (
@@ -53,6 +58,60 @@ class FakePets:
 
 
 class UnknownTests(unittest.TestCase):
+    def test_u04_saves_reusable_policy_and_predicts_image(self):
+        class FeatureModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.fc = nn.Linear(2, len(BREEDS_25))
+
+            def forward(self, inputs):
+                return self.fc(inputs)
+
+        class Weights:
+            def transforms(self):
+                return lambda image: torch.tensor([1.0, 0.0]) if isinstance(image, Image.Image) else image
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = FeatureDistanceConfig(BREEDS_25, root / "model.pth", root / "source.json", root / "results", root)
+            save_model(FeatureModel(), BREEDS_25, config.model_path)
+            config.source_experiment_path.write_text(
+                json.dumps({"config": {"classes": list(BREEDS_25), "validation_fraction": 0.25, "seed": 42}})
+            )
+            image_path = root / "image.png"
+            Image.new("RGB", (2, 2)).save(image_path)
+            with patch("lecture_02.common.dataset.datasets.OxfordIIITPet", side_effect=FakePets), patch(
+                "lecture_02.common.open_set.create_model",
+                side_effect=lambda *args, **kwargs: (FeatureModel(), Weights()),
+            ), patch("lecture_02.common.open_set.DEVICE", "cpu"):
+                run_feature_distance_experiment(config)
+                result = predict_unknown_image(image_path, config.results_dir / "experiment.json")
+            with patch("lecture_02.predict.MODELS_DIR", root), patch(
+                "lecture_02.predict.MODELS", {"validation": ("model.pth", BREEDS_25)}
+            ), patch("lecture_02.predict.POLICIES", {"u04": config.results_dir / "experiment.json"}), patch(
+                "lecture_02.predict.create_model", side_effect=lambda *args, **kwargs: (FeatureModel(), Weights())
+            ), patch(
+                "lecture_02.predict.DEVICE", "cpu"
+            ):
+                cli_result = predict_from_cli(image_path, unknown="u04")
+            payload = json.loads((config.results_dir / "experiment.json").read_text())
+            self.assertEqual(len(payload["prototypes"]), 25)
+            self.assertEqual(payload["selection"]["unknown_used"], False)
+            self.assertEqual(cli_result["label"], result["label"])
+            self.assertEqual(cli_result["value"], result["distance"])
+            self.assertEqual(
+                result["label"] == "unknown",
+                is_unknown_distance(result["distance"], payload["threshold"]),
+            )
+            self.assertEqual(
+                {path.name for path in config.results_dir.iterdir()},
+                {"report.txt", "experiment.json", "score_distribution.png", "rejection_tradeoff.png"},
+            )
+            payload.pop("prototypes")
+            (config.results_dir / "experiment.json").write_text(json.dumps(payload))
+            with self.assertRaisesRegex(ValueError, "перезапустите U04"):
+                predict_unknown_image(image_path, config.results_dir / "experiment.json")
+
     def test_feature_distance_uses_known_prototypes(self):
         class FeatureModel(nn.Module):
             def __init__(self):

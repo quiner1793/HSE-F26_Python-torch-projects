@@ -8,6 +8,7 @@ ResNet18, предобученной на ImageNet. Поддерживаются
 
 ```text
 lecture_02/
+├── predict.py     предсказание по одному изображению
 ├── common/       общая логика данных, модели, обучения и оценки
 ├── experiments/  конфигурации экспериментов
 ├── models/       сохранённые checkpoint моделей
@@ -27,7 +28,7 @@ lecture_02/
 | `train.py` | Настройка обучаемых слоёв, обучение и checkpoint |
 | `evaluate.py` | Метрики, отчёт и графики |
 | `unknown.py` | Проверка порогов уверенности на известных и неизвестных изображениях |
-| `open_set.py` | Распознавание unknown по расстоянию до признаков известных пород |
+| `open_set.py` | Расстояние до известных пород и предсказание unknown для фото |
 | `predict.py` | Предсказание для одного изображения |
 | `experiment.py` | Общий сценарий запуска эксперимента |
 
@@ -37,4 +38,4 @@ lecture_02/
 
 Команды запуска и результаты: [EXPERIMENTS.md](EXPERIMENTS.md).
 
-План и результаты распознавания unknown: [UNKNOWN_EXPERIMENTS.md](UNKNOWN_EXPERIMENTS.md).
+Запуск предсказания и результаты распознавания unknown: [UNKNOWN_EXPERIMENTS.md](UNKNOWN_EXPERIMENTS.md).

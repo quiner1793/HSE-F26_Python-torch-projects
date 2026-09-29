@@ -8,6 +8,7 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
+from PIL import Image
 from torch.utils.data import DataLoader, Subset
 
 from .classes import CAT_BREEDS
@@ -29,11 +30,12 @@ class FeatureDistanceConfig:
     max_false_rejection: float = 0.05
 
 
-def _feature_batches(model, loader, device):
+def extract_features_and_logits(model, images):
+    """Return normalized features immediately before the classifier and its logits."""
     captured = []
 
     def capture_features(module, inputs):
-        captured.append(inputs[0].detach())
+        captured.append(inputs[0])
 
     if not hasattr(model, "fc"):
         raise ValueError("Модель должна иметь слой fc")
@@ -41,15 +43,18 @@ def _feature_batches(model, loader, device):
     model.eval()
     try:
         with torch.inference_mode():
-            for images, targets in loader:
-                captured.clear()
-                logits = model(images.to(device))
-                if len(captured) != 1:
-                    raise RuntimeError("Не удалось получить признаки перед fc")
-                features = F.normalize(captured[0], dim=1)
-                yield features, logits, targets.to(device)
+            logits = model(images)
     finally:
         handle.remove()
+    if len(captured) != 1:
+        raise RuntimeError("Не удалось получить признаки перед fc")
+    return F.normalize(captured[0], dim=1), logits
+
+
+def _feature_batches(model, loader, device):
+    for images, targets in loader:
+        features, logits = extract_features_and_logits(model, images.to(device))
+        yield features, logits, targets.to(device)
 
 
 def build_class_prototypes(model, loader, device, num_classes):
@@ -66,12 +71,16 @@ def build_class_prototypes(model, loader, device, num_classes):
     return F.normalize(sums / counts.unsqueeze(1), dim=1), counts.cpu().tolist()
 
 
+def nearest_prototype(features, prototypes):
+    similarities, indices = (features @ prototypes.T).max(dim=1)
+    return similarities.clamp(-1.0, 1.0), indices
+
+
 def collect_distance_predictions(model, loader, device, prototypes):
     records = []
     for features, logits, targets in _feature_batches(model, loader, device):
         probabilities, predictions = logits.softmax(dim=1).max(dim=1)
-        similarities, nearest = (features @ prototypes.T).max(dim=1)
-        similarities = similarities.clamp(-1.0, 1.0)
+        similarities, nearest = nearest_prototype(features, prototypes)
         for target, prediction, confidence, similarity, nearest_class in zip(
             targets.cpu().tolist(),
             predictions.cpu().tolist(),
@@ -104,8 +113,16 @@ def select_distance_threshold(known_validation, max_false_rejection):
     return distances[index]
 
 
+def is_unknown_distance(distance, threshold):
+    if not math.isfinite(threshold) or not 0 <= threshold <= 2:
+        raise ValueError("Порог расстояния должен быть в диапазоне [0, 2]")
+    if not math.isfinite(distance) or not 0 <= distance <= 2:
+        raise ValueError("Расстояние должно быть в диапазоне [0, 2]")
+    return distance > threshold
+
+
 def distance_metrics(records, known, threshold):
-    accepted = [row for row in records if row["distance"] <= threshold]
+    accepted = [row for row in records if not is_unknown_distance(row["distance"], threshold)]
     rejected = len(records) - len(accepted)
     result = {
         "total": len(records),
@@ -130,7 +147,7 @@ def distance_metrics(records, known, threshold):
             name = row.get("true_class", str(row["target"]))
             values = per_class.setdefault(name, {"total": 0, "rejected": 0})
             values["total"] += 1
-            values["rejected"] += int(row["distance"] > threshold)
+            values["rejected"] += int(is_unknown_distance(row["distance"], threshold))
         for values in per_class.values():
             values["false_rejection_rate"] = values["rejected"] / values["total"]
         result["per_class"] = per_class
@@ -152,7 +169,7 @@ def _add_source_metadata(dataset, rows):
         row["true_class"] = selected.selected_classes[row["target"]]
 
 
-def _save_feature_distance_results(config, metadata, records, metrics, threshold):
+def _save_feature_distance_results(config, metadata, records, metrics, threshold, prototypes):
     import matplotlib.pyplot as plt
 
     directory = config.results_dir
@@ -168,6 +185,7 @@ def _save_feature_distance_results(config, metadata, records, metrics, threshold
             "rule": "distance > threshold -> unknown",
         },
         "metadata": metadata,
+        "prototypes": prototypes.cpu().tolist(),
         "metrics": metrics,
         "predictions": records,
     }
@@ -319,6 +337,47 @@ def run_feature_distance_experiment(config):
         "seed": source_config["seed"],
         "validation_fraction": source_config["validation_fraction"],
     }
-    _save_feature_distance_results(config, metadata, records, metrics, threshold)
+    _save_feature_distance_results(config, metadata, records, metrics, threshold, prototypes)
     print(f"Результаты: {config.results_dir}")
     return metrics
+
+
+def load_feature_distance_policy(experiment_path, checkpoint_path, classes, device):
+    """Load the threshold and prototypes matched to a checkpoint."""
+    experiment = json.loads(Path(experiment_path).read_text(encoding="utf-8"))
+    if experiment.get("method") != "cosine_distance_to_class_prototype":
+        raise ValueError("Нужен experiment.json опыта U04")
+    if "prototypes" not in experiment:
+        raise ValueError("В experiment.json нет центров пород; перезапустите U04")
+    if experiment["config"]["classes"] != list(classes):
+        raise ValueError("Классы модели не совпадают с экспериментом U04")
+    if file_digest(checkpoint_path) != experiment["metadata"]["checkpoint_sha256"]:
+        raise ValueError("Checkpoint не совпадает с экспериментом U04")
+    prototypes = torch.tensor(experiment["prototypes"], dtype=torch.float32, device=device)
+    if prototypes.ndim != 2 or prototypes.shape[0] != len(classes) or not torch.isfinite(prototypes).all():
+        raise ValueError("Некорректные центры пород в experiment.json")
+    return prototypes, experiment["threshold"]
+
+
+def predict_unknown_image(image_path, experiment_path):
+    """Apply the saved U04 rule to one image, using its original checkpoint."""
+    experiment = json.loads(Path(experiment_path).read_text(encoding="utf-8"))
+    classes = experiment["config"]["classes"]
+    checkpoint_path = Path(experiment["config"]["model_path"])
+    prototypes, threshold = load_feature_distance_policy(experiment_path, checkpoint_path, classes, DEVICE)
+
+    model, weights = create_model(len(classes), pretrained=False)
+    model, _ = load_model(model, checkpoint_path, DEVICE, expected_classes=classes)
+    with Image.open(image_path) as image:
+        tensor = weights.transforms()(image.convert("RGB")).unsqueeze(0).to(DEVICE)
+    features, logits = extract_features_and_logits(model, tensor)
+    if features.shape[1] != prototypes.shape[1]:
+        raise ValueError("Размерность центров пород не совпадает с моделью")
+    confidence, class_id = logits.softmax(dim=1).max(dim=1)
+    similarities, _ = nearest_prototype(features, prototypes)
+    distance = 1.0 - similarities[0].item()
+    return {
+        "label": "unknown" if is_unknown_distance(distance, threshold) else classes[class_id.item()],
+        "confidence": confidence.item(),
+        "distance": distance,
+    }
