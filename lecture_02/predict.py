@@ -112,22 +112,25 @@ def main():
     # parser.add_argument("--top-k", type=int, default=3, help="Сколько ближайших пород показать")
     # args = parser.parse_args()
 
-    # image_path = "data/data_real/sima.jpg"
+    # image_path = "data/data_real/rita.jpg"
     image_path = "data/data_real/praire_dog.jpg"
     model = "25_classes_validation"
-    unknown = "u04"
+    unknown_list = ["none", "u02", "u03", "u04"]
     top_k = 3
 
-    result = predict(image_path, model, unknown, top_k)
+    for unknown in unknown_list:
+        print(f"Выбранная политика unknown: {unknown}")
+        result = predict(image_path, model, unknown, top_k)
 
-    print(f"Ответ: {result['label']}")
-    if result["score"] is not None:
-        relation = ">" if result["score"] == "distance" else "<"
-        print(f"Правило: {result['score']} {relation} {result['threshold']:.6f} -> unknown")
-        print(f"Оценка изображения: {result['value']:.6f}")
-    print("Ближайшие породы по модели:")
-    for name, probability in result["top"]:
-        print(f"  {name}: {probability:.1%}")
+        print(f"Ответ: {result['label']}")
+        if result["score"] is not None:
+            relation = ">" if result["score"] == "distance" else "<"
+            print(f"Правило: {result['score']} {relation} {result['threshold']:.6f} -> unknown")
+            print(f"Оценка изображения: {result['value']:.6f}")
+        print("Ближайшие породы по модели:")
+        for name, probability in result["top"]:
+            print(f"  {name}: {probability:.1%}")
+        print("\n\n")
 
 
 if __name__ == "__main__":
