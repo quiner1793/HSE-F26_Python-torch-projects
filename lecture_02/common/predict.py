@@ -1,10 +1,19 @@
 import torch
 from PIL import Image
+from torch import nn
 
 from .decision import is_unknown
 
 
-def predict_image(model, image_path, transform, classes, device, threshold=None, score="confidence"):
+def predict_image(
+    model: nn.Module,
+    image_path,
+    transform,
+    classes: tuple[str, ...] | list[str],
+    device,
+    threshold: float | None = None,
+    score: str = "confidence",
+) -> tuple[str, float]:
     """Предсказывает одну картинку; используется обычным запуском и U02/U03."""
     if score not in ("confidence", "margin"):
         raise ValueError("Оценка должна быть confidence или margin")

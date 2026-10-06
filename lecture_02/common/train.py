@@ -3,9 +3,11 @@
 from pathlib import Path
 
 import torch
+from torch import nn
+from torch.utils.data import DataLoader
 
 
-def configure_training(model, learning_rate, backbone_lr=None):
+def configure_training(model: nn.Module, learning_rate: float, backbone_lr: float | None = None) -> list[dict]:
     for parameter in model.parameters():
         parameter.requires_grad = False
     for parameter in model.fc.parameters():
@@ -19,7 +21,7 @@ def configure_training(model, learning_rate, backbone_lr=None):
     return groups
 
 
-def _validation_metrics(model, loader, device, criterion):
+def _validation_metrics(model: nn.Module, loader: DataLoader, device, criterion: nn.Module) -> tuple[float, float]:
     model.eval()
     loss_sum = correct = total = 0
     with torch.no_grad():
@@ -35,20 +37,20 @@ def _validation_metrics(model, loader, device, criterion):
 
 
 def train_model(
-    model,
-    train_loader,
+    model: nn.Module,
+    train_loader: DataLoader,
     device,
-    epochs,
-    learning_rate,
-    momentum,
-    backbone_lr=None,
-    history=None,
-    validation_loader=None,
-    early_stopping_patience=None,
-    scheduler_patience=None,
-    scheduler_factor=0.3,
-    min_delta=0.0,
-):
+    epochs: int,
+    learning_rate: float,
+    momentum: float,
+    backbone_lr: float | None = None,
+    history: list[dict] | None = None,
+    validation_loader: DataLoader | None = None,
+    early_stopping_patience: int | None = None,
+    scheduler_patience: int | None = None,
+    scheduler_factor: float = 0.3,
+    min_delta: float = 0.0,
+) -> nn.Module:
     model = model.to(device)
     groups = configure_training(model, learning_rate, backbone_lr)
     criterion = torch.nn.CrossEntropyLoss()
@@ -121,12 +123,17 @@ def train_model(
     return model
 
 
-def save_model(model, classes, path):
+def save_model(model: nn.Module, classes: tuple[str, ...] | list[str], path: str | Path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     torch.save({"model_state": model.state_dict(), "classes": list(classes)}, path)
 
 
-def load_model(model, path, device, expected_classes=None):
+def load_model(
+    model: nn.Module,
+    path: str | Path,
+    device,
+    expected_classes: tuple[str, ...] | list[str] | None = None,
+) -> tuple[nn.Module, list[str]]:
     print(f"Loading model: {path}")
     checkpoint = torch.load(path, map_location=device, weights_only=True)
     classes = checkpoint["classes"]

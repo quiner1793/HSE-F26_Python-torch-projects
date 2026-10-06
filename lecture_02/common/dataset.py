@@ -5,7 +5,14 @@ from torchvision import datasets
 
 class SelectedBreedsDataset(Dataset):
 
-    def __init__(self, base, transform, selected_classes, indices=None, targets=None):
+    def __init__(
+        self,
+        base: Dataset,
+        transform,
+        selected_classes: tuple[str, ...] | list[str],
+        indices: list[int] | None = None,
+        targets: list[int] | None = None,
+    ) -> None:
         self.base = base
         self.transform = transform
         self.selected_classes = selected_classes
@@ -24,10 +31,10 @@ class SelectedBreedsDataset(Dataset):
             self.indices = indices
             self.targets = targets
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.indices)
 
-    def __getitem__(self, i):
+    def __getitem__(self, i: int):
         image, old_y = self.base[self.indices[i]]
 
         image = self.transform(image)
@@ -36,7 +43,7 @@ class SelectedBreedsDataset(Dataset):
         return image, new_y
 
 
-def _stratified_indices(targets, validation_fraction, seed):
+def _stratified_indices(targets: list[int], validation_fraction: float, seed: int) -> tuple[list[int], list[int]]:
     generator = torch.Generator().manual_seed(seed)
     train_indices = []
     validation_indices = []
@@ -50,7 +57,14 @@ def _stratified_indices(targets, validation_fraction, seed):
     return train_indices, validation_indices
 
 
-def create_datasets(data_root, selected_classes, transform, test_transform=None, validation_fraction=0.0, seed=42):
+def create_datasets(
+    data_root,
+    selected_classes: tuple[str, ...] | list[str],
+    transform,
+    test_transform=None,
+    validation_fraction: float = 0.0,
+    seed: int = 42,
+):
     """Создаёт train/validation/test; validation стратифицирован по классам."""
     print("Creating datasets...")
     train_all = datasets.OxfordIIITPet(root=data_root, split="trainval", target_types="category", download=True)
@@ -83,7 +97,7 @@ def create_datasets(data_root, selected_classes, transform, test_transform=None,
     return train_ds, validation_ds, test_ds
 
 
-def create_loaders(train_ds, validation_ds, test_ds, batch_size):
+def create_loaders(train_ds, validation_ds, test_ds, batch_size: int):
     print("Creating loaders...")
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 

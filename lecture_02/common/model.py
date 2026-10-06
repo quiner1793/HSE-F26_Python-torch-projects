@@ -1,8 +1,9 @@
 from torch import nn
+from torchvision.models import ResNet
 from torchvision.models import resnet18, ResNet18_Weights
 
 
-def create_model(num_classes, pretrained=True):
+def create_model(num_classes: int, pretrained: bool = True) -> tuple[ResNet, ResNet18_Weights]:
 
     weights = ResNet18_Weights.DEFAULT
 

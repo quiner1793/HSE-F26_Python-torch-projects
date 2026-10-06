@@ -39,3 +39,16 @@ lecture_02/
 Команды запуска и результаты: [EXPERIMENTS.md](EXPERIMENTS.md).
 
 Запуск предсказания и результаты распознавания unknown: [UNKNOWN_EXPERIMENTS.md](UNKNOWN_EXPERIMENTS.md).
+
+## Минимальное домашнее задание
+
+Пункты из слайда собраны в отдельном файле [homework.py](homework.py). Запуск:
+
+```bash
+python -m lecture_02.homework
+```
+
+Файл показывает shape после `transform` и `unsqueeze(0)`, печатает ResNet18 и
+его части `conv1`, `layer1`...`layer4`, `avgpool`, `fc`, демонстрирует разницу
+между двумя именами одного списка и копией, а также указывает, где находятся
+`Dataset`, `model`, `train`, `predict` и type hints.
