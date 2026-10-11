@@ -19,6 +19,7 @@ class DataConfig:
     train_end: str = "2026-01-01"
     test_start: str = "2026-01-01"
     window: int = 20
+    forecast_steps_after_test: int = 100
 
 
 @dataclass(frozen=True)

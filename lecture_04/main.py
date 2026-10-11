@@ -5,6 +5,8 @@ from lecture_04.data import download_close_prices, make_train_loader, prepare_da
 from lecture_04.evaluate import (
     evaluate_baseline,
     evaluate_predictions,
+    forecast_after_test,
+    make_future_business_dates,
     predict,
     print_metrics,
     save_predictions_plot,
@@ -49,6 +51,17 @@ def main() -> None:
 
     print_metrics("Baseline", baseline_metrics)
     print_metrics("MLP", model_metrics)
+
+    future_pred = forecast_after_test(
+        model=model,
+        x_last=x_test[-1],
+        steps=data_config.forecast_steps_after_test,
+    )
+    future_dates = make_future_business_dates(
+        last_date=test_dates[-1],
+        steps=data_config.forecast_steps_after_test,
+    )
+
     save_predictions_plot(
         test_dates,
         y_test,
@@ -56,6 +69,8 @@ def main() -> None:
         label="MLP",
         path=RESULTS_DIR / "mlp_predictions.png",
         scaling=scaling,
+        future_dates=future_dates,
+        future_pred=future_pred,
     )
 
 
