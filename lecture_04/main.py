@@ -1,13 +1,13 @@
 from torch import nn
 
-from lecture_04.config import DataConfig, DEVICE, TrainConfig
+from lecture_04.config import DataConfig, DEVICE, RESULTS_DIR, TrainConfig
 from lecture_04.data import download_close_prices, make_train_loader, prepare_datasets, set_seed
 from lecture_04.evaluate import (
     evaluate_baseline,
     evaluate_predictions,
-    plot_predictions,
     predict,
     print_metrics,
+    save_predictions_plot,
 )
 from lecture_04.models import PriceMLP
 from lecture_04.train import train_model
@@ -20,7 +20,10 @@ def main() -> None:
 
     print("\nStart download\n")
     prices = download_close_prices(data_config)
-    x_train, y_train, x_test, y_test = prepare_datasets(prices, data_config)
+    x_train, y_train, x_test, y_test, test_dates, scaling = prepare_datasets(
+        prices,
+        data_config,
+    )
 
     x_train = x_train.to(DEVICE)
     y_train = y_train.to(DEVICE)
@@ -46,7 +49,14 @@ def main() -> None:
 
     print_metrics("Baseline", baseline_metrics)
     print_metrics("MLP", model_metrics)
-    plot_predictions(y_test, pred, label="MLP\n")
+    save_predictions_plot(
+        test_dates,
+        y_test,
+        pred,
+        label="MLP",
+        path=RESULTS_DIR / "mlp_predictions.png",
+        scaling=scaling,
+    )
 
 
 if __name__ == "__main__":

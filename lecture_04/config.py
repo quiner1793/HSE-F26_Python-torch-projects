@@ -1,20 +1,24 @@
 """Shared settings for lecture 04 experiments."""
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import torch
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+LECTURE_DIR = Path(__file__).resolve().parent
+RESULTS_DIR = LECTURE_DIR / "results"
 
 
 @dataclass(frozen=True)
 class DataConfig:
     ticker: str = "AAPL"
     start: str = "2018-01-01"
-    end: str = "2026-01-01"
+    end: str = "2027-01-01"
+    train_end: str = "2026-01-01"
+    test_start: str = "2026-01-01"
     window: int = 20
-    train_share: float = 0.8
 
 
 @dataclass(frozen=True)
