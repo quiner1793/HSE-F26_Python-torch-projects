@@ -11,7 +11,7 @@ from lecture_04.evaluate import (
     print_metrics,
     save_predictions_plot,
 )
-from lecture_04.models import PriceMLP
+from lecture_04.models import build_model
 from lecture_04.train import train_model
 
 
@@ -35,7 +35,12 @@ def main() -> None:
     train_loader = make_train_loader(x_train, y_train, train_config)
     criterion = nn.MSELoss()
 
-    model = PriceMLP(window=data_config.window).to(DEVICE)
+    model_name = train_config.model_name.upper()
+    model = build_model(
+        model_name=train_config.model_name,
+        window=data_config.window,
+    ).to(DEVICE)
+
     print("\nStart train\n")
     train_model(
         model=model,
@@ -50,7 +55,7 @@ def main() -> None:
     model_metrics = evaluate_predictions(pred, y_test)
 
     print_metrics("Baseline", baseline_metrics)
-    print_metrics("MLP", model_metrics)
+    print_metrics(model_name, model_metrics)
 
     future_pred = forecast_after_test(
         model=model,
@@ -66,8 +71,8 @@ def main() -> None:
         test_dates,
         y_test,
         pred,
-        label="MLP",
-        path=RESULTS_DIR / "mlp_predictions.png",
+        label=model_name,
+        path=RESULTS_DIR / f"{train_config.model_name.lower()}_predictions.png",
         scaling=scaling,
         future_dates=future_dates,
         future_pred=future_pred,
