@@ -24,8 +24,8 @@ class DataConfig:
 
 @dataclass(frozen=True)
 class TrainConfig:
-    # mlp, lstm, rnn, gru
-    model_name: str = "lstm"
+    # mlp, rnn, lstm, gru
+    model_name: str = "gru"
     batch_size: int = 64
     epochs: int = 30
     learning_rate: float = 1e-3

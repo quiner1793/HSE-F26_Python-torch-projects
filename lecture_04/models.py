@@ -14,24 +14,6 @@ class PriceMLP(nn.Module):
         return self.net(x).squeeze(1)
 
 
-class PriceLSTM(nn.Module):
-    def __init__(self, hidden_size: int = 64, num_layers: int = 1) -> None:
-        super().__init__()
-        self.lstm = nn.LSTM(
-            input_size=1,
-            hidden_size=hidden_size,
-            num_layers=num_layers,
-            batch_first=True,
-        )
-        self.head = nn.Linear(hidden_size, 1)
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = x.unsqueeze(-1)
-        output, _ = self.lstm(x)
-        last_output = output[:, -1, :]
-        return self.head(last_output).squeeze(1)
-
-
 class PriceRNN(nn.Module):
     def __init__(self, hidden_size: int = 64, num_layers: int = 1) -> None:
         super().__init__()
@@ -46,6 +28,24 @@ class PriceRNN(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         x = x.unsqueeze(-1)
         output, _ = self.rnn(x)
+        last_output = output[:, -1, :]
+        return self.head(last_output).squeeze(1)
+
+
+class PriceLSTM(nn.Module):
+    def __init__(self, hidden_size: int = 64, num_layers: int = 1) -> None:
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_size=1,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True,
+        )
+        self.head = nn.Linear(hidden_size, 1)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = x.unsqueeze(-1)
+        output, _ = self.lstm(x)
         last_output = output[:, -1, :]
         return self.head(last_output).squeeze(1)
 
